@@ -1,0 +1,8 @@
+{
+  "name": "FactInfoLive",
+  "description": "World-Class Global News, Sports, and Science Intelligence Platform featuring authentic provider streams, live scoreboards, multi-perspective analysis, and verified source citations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

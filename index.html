@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Defensive window.fetch accessor patch for preview iframe & inspector extension
+      (function() {
+        try {
+          var _origFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return _origFetch;
+            },
+            set: function(val) {
+              _origFetch = val;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (err) {
+          // Graceful fallback if already writable
+        }
+      })();
+    </script>
+    <title>FactInfoLive – Global News, Live Sports & Science Intelligence</title>
+    <meta name="description" content="Authentic global news coverage, real-time sports fixtures and scores, scientific research discoveries, and verified multi-perspective intelligence." />
+    
+    <!-- OpenGraph Metadata -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FactInfoLive" />
+    <meta property="og:title" content="FactInfoLive – Global News, Live Sports & Science Intelligence" />
+    <meta property="og:description" content="Authentic global news coverage, real-time sports fixtures and scores, scientific research discoveries, and verified multi-perspective intelligence." />
+    <meta property="og:image" content="/og-preview.png" />
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="FactInfoLive – Global News, Live Sports & Science Intelligence" />
+    <meta name="twitter:description" content="Authentic global news coverage, real-time sports fixtures and scores, scientific research discoveries, and verified multi-perspective intelligence." />
+
+    <!-- Google Fonts: Playfair Display, Plus Jakarta Sans, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,400;1,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Schema.org Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "NewsMediaOrganization",
+      "name": "FactInfoLive",
+      "url": "https://factinfolive.org",
+      "logo": "https://factinfolive.org/logo.png",
+      "description": "Global information platform delivering verified international reporting, real-time sports fixtures, science intelligence, and source transparency.",
+      "knowsAbout": ["Global News", "Live Sports", "Scientific Discoveries", "International Economics", "Fact Checking", "Public Policy"],
+      "publishingPrinciples": "https://factinfolive.org/editorial-policy",
+      "actionableFeedbackPolicy": "https://factinfolive.org/corrections"
+    }
+    </script>
+  </head>
+  <body class="bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 antialiased selection:bg-blue-600 selection:text-white min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
