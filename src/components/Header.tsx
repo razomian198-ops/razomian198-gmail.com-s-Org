@@ -14,7 +14,8 @@ import {
   BookOpen,
   Sparkles,
   FileText,
-  Heart
+  Heart,
+  GitFork
 } from 'lucide-react';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
 import { CATEGORIES } from '../data/categories.ts';
@@ -67,6 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // The 9 core editorial navigation sections requested in Section A
   const editorialSections = [
+    { id: 'facttrail', label: 'FactTrail — Storylines' },
     { id: 'latest-news', label: t.latestNews },
     { id: 'blogs', label: t.blogs },
     { id: 'quick-summaries', label: t.quickSummaries },
@@ -78,30 +80,59 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'guides-faqs', label: t.guidesFaqs },
   ];
 
-  const currentBreaking = breakingNews.length > 0 ? breakingNews[0] : null;
+  const [tickerIndex, setTickerIndex] = useState(0);
+
+  React.useEffect(() => {
+    if (breakingNews.length <= 1) return;
+    const interval = setInterval(() => {
+      setTickerIndex((prev) => (prev + 1) % breakingNews.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [breakingNews.length]);
+
+  const currentBreaking = breakingNews.length > 0 ? breakingNews[tickerIndex % breakingNews.length] : null;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-stone-200 dark:border-slate-800 transition-colors">
-      {/* 1. Breaking News Ribbon */}
+      {/* 1. Multi-Source Breaking News Ribbon */}
       {currentBreaking && (
         <div className="bg-slate-900 text-stone-100 text-xs py-1.5 px-4 flex items-center justify-between border-b border-slate-800">
           <div className="flex items-center gap-2 overflow-hidden max-w-5xl">
             <span className="font-semibold tracking-wider uppercase text-blue-400 shrink-0 flex items-center gap-1.5">
-              <Radio className="w-3.5 h-3.5 text-blue-400" />
+              <Radio className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
               {t.breakingNews}
             </span>
+            {breakingNews.length > 1 && (
+              <span className="text-[10px] bg-slate-800 text-slate-300 font-mono px-1.5 py-0.5 rounded shrink-0">
+                {(tickerIndex % breakingNews.length) + 1}/{breakingNews.length}
+              </span>
+            )}
             <span className="text-slate-400" aria-hidden="true">·</span>
             <button
               onClick={() => onOpenArticle(currentBreaking)}
               className="text-stone-200 hover:text-white truncate font-medium text-left cursor-pointer transition-colors"
             >
-              {currentBreaking.title}
+              {currentBreaking.isTranslated && currentBreaking.translationLanguage === currentLanguage && currentBreaking.translatedTitle
+                ? currentBreaking.translatedTitle
+                : currentBreaking.title}
             </button>
-            <span className="text-slate-500 text-[11px] shrink-0 hidden sm:inline">
-              ({currentBreaking.publisher} · {new Date(currentBreaking.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+            <span className="text-blue-400 text-[11px] font-semibold shrink-0 hidden sm:inline">
+              [{currentBreaking.publisher}]
+            </span>
+            <span className="text-slate-500 text-[11px] shrink-0 hidden md:inline">
+              · {new Date(currentBreaking.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
           <div className="flex items-center gap-3 shrink-0 text-slate-400 text-[11px]">
+            {breakingNews.length > 1 && (
+              <button
+                onClick={() => setTickerIndex((prev) => (prev + 1) % breakingNews.length)}
+                className="hover:text-stone-200 text-[10px] underline cursor-pointer hidden sm:inline"
+                title="Next breaking story"
+              >
+                Next Story →
+              </button>
+            )}
             <a
               href={currentBreaking.url}
               target="_blank"
@@ -136,6 +167,20 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Zone 2: Concise Navigation Links */}
         <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-700 dark:text-slate-200">
+          <button
+            onClick={() => onSelectCategory('facttrail')}
+            className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
+              activeCategory === 'facttrail'
+                ? 'text-blue-600 dark:text-blue-400 font-bold'
+                : 'text-blue-600/90 dark:text-blue-400/90 font-semibold'
+            }`}
+          >
+            <GitFork className="w-3.5 h-3.5" />
+            <span>FactTrail</span>
+            <span className="text-[10px] bg-blue-100 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 font-bold px-1.5 py-0.5 rounded-full">
+              Stories
+            </span>
+          </button>
           <button
             onClick={() => onSelectCategory('latest-news')}
             className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${

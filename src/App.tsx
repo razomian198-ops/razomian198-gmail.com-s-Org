@@ -19,6 +19,9 @@ import { SupporterModal } from './components/SupporterModal.tsx';
 import { SponsorshipModal } from './components/SponsorshipModal.tsx';
 import { AdBanner } from './components/AdBanner.tsx';
 import { Footer } from './components/Footer.tsx';
+import { FactTrailSection } from './components/FactTrailSection.tsx';
+import { FactTrailView } from './components/FactTrailView.tsx';
+import { FactTrailDetailView } from './components/FactTrailDetailView.tsx';
 import {
   NewsItem,
   SportsFixture,
@@ -27,6 +30,7 @@ import {
 } from '../server/services/types.ts';
 import { SupportedLanguage } from './i18n/translations.ts';
 import { Loader2 } from 'lucide-react';
+import { safeFetchJson } from './utils/api.ts';
 
 const EDITORIAL_SECTIONS = [
   'latest-news',
@@ -77,14 +81,41 @@ export default function App() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [isAllTopicsOpen, setIsAllTopicsOpen] = useState(false);
 
-  // Sync /admin URL path with browser navigation
+  // FactTrail storyline tracking state (synced with ?story= URL param)
+  const [selectedTrailId, setSelectedTrailId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('story');
+    }
+    return null;
+  });
+
+  // Sync /admin URL path and ?story= query param with browser navigation
   useEffect(() => {
     const handlePopState = () => {
       setIsAdminRoute(window.location.pathname.startsWith('/admin'));
+      const params = new URLSearchParams(window.location.search);
+      setSelectedTrailId(params.get('story'));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  const handleOpenTrail = (trailId: string) => {
+    setSelectedTrailId(trailId);
+    setSelectedBlogSlug(null);
+    const url = new URL(window.location.href);
+    url.searchParams.set('story', trailId);
+    window.history.pushState({}, '', url.toString());
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBackFromTrail = () => {
+    setSelectedTrailId(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('story');
+    window.history.pushState({}, '', url.pathname + (url.search || ''));
+  };
 
   // Sync dark class on root document element
   useEffect(() => {
@@ -96,46 +127,155 @@ export default function App() {
   }, [isDarkMode]);
 
   // Initial Data Fetch
+  const loadInitialData = React.useCallback(async () => {
+    try {
+      setLoading(true);
+      const [newsRes, breakingRes, sportsRes, standingsRes] = await Promise.allSettled([
+        safeFetchJson<{ items: NewsItem[] }>('/api/news'),
+        safeFetchJson<NewsItem[]>('/api/news/breaking'),
+        safeFetchJson<any>('/api/sports'),
+        safeFetchJson<SportsStanding[]>('/api/sports/standings'),
+      ]);
+
+      if (newsRes.status === 'fulfilled' && newsRes.value?.ok && newsRes.value.data?.items) {
+        setNews(newsRes.value.data.items);
+      }
+      if (breakingRes.status === 'fulfilled' && breakingRes.value?.ok && Array.isArray(breakingRes.value.data)) {
+        setBreakingNews(breakingRes.value.data);
+      }
+      if (sportsRes.status === 'fulfilled' && sportsRes.value?.ok && sportsRes.value.data) {
+        const sVal = sportsRes.value.data;
+        const fixtureList = Array.isArray(sVal)
+          ? sVal
+          : (sVal.allFixtures || [...(sVal.live || []), ...(sVal.today || []), ...(sVal.upcoming || []), ...(sVal.results || [])]);
+        setFixtures(fixtureList);
+        if (sVal.topStandings && Array.isArray(sVal.topStandings)) {
+          setStandings(sVal.topStandings);
+        }
+      }
+      if (standingsRes.status === 'fulfilled' && standingsRes.value?.ok && Array.isArray(standingsRes.value.data)) {
+        setStandings((prev) => (prev.length > 0 ? prev : standingsRes.value.data!));
+      }
+    } catch (err) {
+      console.warn('Initial platform data synchronization notice:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // News & Breaking news translation effect: Translates headlines and summaries when non-English is selected
   useEffect(() => {
     let isMounted = true;
 
-    async function loadInitialData() {
+    async function translateNews() {
+      if (currentLanguage === 'en') {
+        // When returning to English, ensure original content is restored
+        setNews((prev) =>
+          prev.map((n) => ({
+            ...n,
+            isTranslated: false,
+            translationLanguage: 'en',
+          }))
+        );
+        setBreakingNews((prev) =>
+          prev.map((b) => ({
+            ...b,
+            isTranslated: false,
+            translationLanguage: 'en',
+          }))
+        );
+        return;
+      }
+
+      if (news.length === 0 && breakingNews.length === 0) return;
+
       try {
-        setLoading(true);
-        const [newsRes, breakingRes, sportsRes, standingsRes] = await Promise.allSettled([
-          fetch('/api/news').then((r) => r.json()),
-          fetch('/api/news/breaking').then((r) => r.json()),
-          fetch('/api/sports/fixtures').then((r) => r.json()),
-          fetch('/api/sports/standings').then((r) => r.json()),
-        ]);
+        // 1. Translate news items (up to 30 items)
+        if (news.length > 0) {
+          const targetNews = news.slice(0, 30);
+          const res = await safeFetchJson<{ items: any[] }>('/api/news/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: targetNews.map((n) => ({ id: n.id, title: n.title, summary: n.summary })),
+              targetLanguage: currentLanguage,
+            }),
+          });
 
-        if (!isMounted) return;
+          if (res.ok && res.data && isMounted) {
+            const data = res.data;
+            if (Array.isArray(data.items)) {
+              const map = new Map<string, any>();
+              for (const item of data.items) {
+                map.set(item.id, item);
+              }
 
-        if (newsRes.status === 'fulfilled' && newsRes.value?.items) {
-          setNews(newsRes.value.items);
+              setNews((prev) =>
+                prev.map((n) => {
+                  const tr = map.get(n.id);
+                  if (tr && tr.isTranslated) {
+                    return {
+                      ...n,
+                      translatedTitle: tr.translatedTitle,
+                      translatedSummary: tr.translatedSummary,
+                      isTranslated: true,
+                      translationLanguage: currentLanguage,
+                    };
+                  }
+                  return n;
+                })
+              );
+            }
+          }
         }
-        if (breakingRes.status === 'fulfilled' && Array.isArray(breakingRes.value)) {
-          setBreakingNews(breakingRes.value);
-        }
-        if (sportsRes.status === 'fulfilled' && Array.isArray(sportsRes.value)) {
-          setFixtures(sportsRes.value);
-        }
-        if (standingsRes.status === 'fulfilled' && Array.isArray(standingsRes.value)) {
-          setStandings(standingsRes.value);
+
+        // 2. Translate breaking news ticker
+        if (breakingNews.length > 0) {
+          const bRes = await safeFetchJson<{ items: any[] }>('/api/news/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: breakingNews.map((b) => ({ id: b.id, title: b.title, summary: b.summary })),
+              targetLanguage: currentLanguage,
+            }),
+          });
+
+          if (bRes.ok && bRes.data && isMounted) {
+            const bData = bRes.data;
+            if (Array.isArray(bData.items)) {
+              const bMap = new Map<string, any>(bData.items.map((it: any) => [it.id, it]));
+              setBreakingNews((prev) =>
+                prev.map((b) => {
+                  const tr = bMap.get(b.id);
+                  if (tr && tr.isTranslated) {
+                    return {
+                      ...b,
+                      translatedTitle: tr.translatedTitle,
+                      translatedSummary: tr.translatedSummary,
+                      isTranslated: true,
+                      translationLanguage: currentLanguage,
+                    };
+                  }
+                  return b;
+                })
+              );
+            }
+          }
         }
       } catch (err) {
-        console.error('Failed to load initial platform data:', err);
-      } finally {
-        if (isMounted) setLoading(false);
+        console.warn('News translation skipped:', err);
       }
     }
 
-    loadInitialData();
-
+    translateNews();
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentLanguage, news.length, breakingNews.length]);
 
   // Fetch individual blog/explainer article when selectedBlogSlug changes
   useEffect(() => {
@@ -145,20 +285,19 @@ export default function App() {
     }
 
     setLoadingBlogArticle(true);
-    fetch(`/api/editorial/articles/${selectedBlogSlug}`)
+    safeFetchJson<EditorialArticle>(`/api/editorial/articles/${selectedBlogSlug}`)
       .then((res) => {
-        if (!res.ok) throw new Error('Not found');
-        return res.json();
+        if (!res.ok || !res.data) throw new Error('Not found');
+        return res.data;
       })
       .then((data: EditorialArticle) => {
         setActiveBlogArticle(data);
         setLoadingBlogArticle(false);
         // Also fetch related articles in same department
-        fetch(`/api/editorial/articles?category=${data.category}&limit=4`)
-          .then((r) => r.json())
-          .then((relData) => {
-            if (relData?.items) {
-              setRelatedBlogArticles(relData.items.filter((a: EditorialArticle) => a.id !== data.id));
+        safeFetchJson<{ items: EditorialArticle[] }>(`/api/editorial/articles?category=${data.category}&limit=4`)
+          .then((relRes) => {
+            if (relRes.ok && relRes.data?.items) {
+              setRelatedBlogArticles(relRes.data.items.filter((a: EditorialArticle) => a.id !== data.id));
             }
           })
           .catch(() => {});
@@ -191,7 +330,11 @@ export default function App() {
     );
   }
 
-  const leadStory = news.length > 0 ? news[0] : null;
+  // Select lead story: prioritize first news item with image and title, fallback to news[0], then breakingNews[0]
+  const leadStory =
+    news.find((n) => n.imageUrl && n.title) ||
+    (news.length > 0 ? news[0] : null) ||
+    (breakingNews.length > 0 ? breakingNews[0] : null);
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200">
@@ -205,6 +348,10 @@ export default function App() {
         activeCategory={activeCategory}
         onSelectCategory={(cat) => {
           setSelectedBlogSlug(null);
+          setSelectedTrailId(null);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('story');
+          window.history.pushState({}, '', url.pathname + (url.search || ''));
           if (cat === 'all-topics') {
             setIsAllTopicsOpen(true);
           } else {
@@ -229,14 +376,7 @@ export default function App() {
         {/* Ethical Ad Banner: Header Billboard (Renders only if enabled by admin in Revenue settings) */}
         <AdBanner slot="headerBillboard" className="w-full" />
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-            <p className="text-sm font-medium text-slate-500">
-              Synchronizing authentic global dispatches &amp; live telemetry...
-            </p>
-          </div>
-        ) : selectedBlogSlug ? (
+        {selectedBlogSlug ? (
           /* View Individual Blog / Deep Explainer / Research Article */
           loadingBlogArticle ? (
             <div className="flex items-center justify-center py-32 text-blue-600">
@@ -258,6 +398,22 @@ export default function App() {
               Article not found or pending editorial review.
             </div>
           )
+        ) : selectedTrailId ? (
+          /* Dedicated FactTrail Story Timeline & Source Matrix View */
+          <FactTrailDetailView
+            trailId={selectedTrailId}
+            onBack={handleBackFromTrail}
+            onOpenArticleByUrl={(url) => window.open(url, '_blank')}
+          />
+        ) : activeCategory === 'facttrail' ? (
+          /* Dedicated FactTrail Story Tracker Directory */
+          <FactTrailView
+            onBackToHome={() => {
+              setActiveCategory('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onOpenTrail={handleOpenTrail}
+          />
         ) : EDITORIAL_SECTIONS.includes(activeCategory) ? (
           /* Dedicated View for the 9 Editorial Channels (Blogs, Quick Summaries, Deep Explainers, etc.) */
           <EditorialSectionView
@@ -308,16 +464,25 @@ export default function App() {
           /* Home Page Experience */
           <>
             {/* A. Lead Story */}
-            {leadStory && (
-              <LeadStory
-                story={leadStory}
-                onOpenArticle={(story) => setSelectedArticle(story)}
-                onOpenSummary={(story) => setSelectedSummaryStory(story)}
-                leadImageOverride="/src/assets/images/hero_editorial_world_1792529244145.jpg"
-              />
-            )}
+            <LeadStory
+              story={leadStory}
+              loading={loading}
+              onRetry={loadInitialData}
+              onOpenArticle={(story) => setSelectedArticle(story)}
+              onOpenSummary={(story) => setSelectedSummaryStory(story)}
+              currentLanguage={currentLanguage}
+            />
 
-            {/* B. Live Sports Center */}
+            {/* B. FactTrail Story Tracker Showcase — Follow the Story, Not Just the Headline */}
+            <FactTrailSection
+              onOpenTrail={handleOpenTrail}
+              onViewAllTrails={() => {
+                setActiveCategory('facttrail');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
+            {/* C. Live Sports Center */}
             <LiveSportsCenter
               currentLanguage={currentLanguage}
               fixtures={fixtures}
@@ -362,7 +527,7 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div className="rounded-lg overflow-hidden aspect-video bg-stone-100 dark:bg-slate-950 relative">
                   <img
-                    src="/src/assets/images/science_discovery_lab_1792529244932.jpg"
+                    src="/images/science_discovery_lab_1792529244932.jpg"
                     alt="Science Discovery Telemetry"
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
@@ -427,6 +592,7 @@ export default function App() {
         currentLanguage={currentLanguage}
         article={selectedArticle}
         onClose={() => setSelectedArticle(null)}
+        onOpenFactTrail={handleOpenTrail}
       />
 
       <StructuredSummaryModal

@@ -80,9 +80,9 @@ export const ProviderStatusModal: React.FC<ProviderStatusModalProps> = ({
 
         {/* Content list */}
         <div className="p-4 sm:p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Zero Budget / Open Data Banner */}
+          {/* Data Source Standards & Open Data Banner */}
           <div className="p-3.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-200">
-            <strong className="block font-semibold mb-1">€0 Operating Cost Guarantee & Anti-Scraping Policy:</strong>
+            <strong className="block font-semibold mb-1">Data Source Standards &amp; Anti-Scraping Policy:</strong>
             <p className="leading-relaxed text-[11px] opacity-90">
               FactInfoLive operates exclusively on authorized open-access APIs, verified RSS syndication feeds, and official institutional press desks. We strictly respect publisher copyright, terms of service, and rate limits.
             </p>
@@ -100,15 +100,18 @@ export const ProviderStatusModal: React.FC<ProviderStatusModalProps> = ({
                       <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-stone-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                         {p.type}
                       </span>
-                      {p.freeTier && (
-                        <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          Free Tier
-                        </span>
-                      )}
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono font-medium">
+                        {p.cachedRecordsCount} items cached
+                      </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
                       {p.details}
                     </p>
+                    {p.lastError && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-0.5">
+                        Notice: {p.lastError}
+                      </p>
+                    )}
                   </div>
 
                   {/* Status Indicator */}

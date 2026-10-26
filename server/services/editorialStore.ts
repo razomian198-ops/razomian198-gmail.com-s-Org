@@ -189,7 +189,7 @@ The accumulation of thermal energy in the upper 700 meters enhances vertical str
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     readingTimeMinutes: 7,
-    imageUrl: '/src/assets/images/climate_satellite_earth_1792529244464.jpg',
+    imageUrl: '/images/climate_satellite_earth_1792529244464.jpg',
     imageAttribution: 'Copernicus Marine Service / NASA Earth Observatory Archive',
     isAiAssisted: false,
     tableOfContents: [
@@ -273,7 +273,7 @@ While optical clocks previously required room-sized laboratory tables isolated o
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
     readingTimeMinutes: 5,
-    imageUrl: '/src/assets/images/science_discovery_lab_1792529244932.jpg',
+    imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
     imageAttribution: 'Max Planck Institute for Quantum Optics / European Metrology Consortium',
     isAiAssisted: false,
     tableOfContents: [
@@ -298,7 +298,7 @@ While optical clocks previously required room-sized laboratory tables isolated o
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     readingTimeMinutes: 3,
-    imageUrl: '/src/assets/images/science_discovery_lab_1792529244932.jpg',
+    imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
     imageAttribution: 'NASA/ESA Space Science Archive',
     isAiAssisted: false,
     structuredSummary: {
@@ -373,7 +373,7 @@ This tactical evolution places extraordinary cardiovascular and cognitive demand
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     readingTimeMinutes: 6,
-    imageUrl: '/src/assets/images/sports_championship_action_1792529244698.jpg',
+    imageUrl: '/images/sports_championship_action_1792529244698.jpg',
     imageAttribution: 'UEFA Champions League Technical Intelligence Study',
     isAiAssisted: false,
     tableOfContents: [
@@ -409,7 +409,7 @@ While laboratory cycle life has surpassed 1,200 cycles with 88% capacity retenti
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     readingTimeMinutes: 8,
-    imageUrl: '/src/assets/images/science_discovery_lab_1792529244932.jpg',
+    imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
     imageAttribution: 'European Materials Research Society Archive',
     isAiAssisted: false,
   },
@@ -437,7 +437,7 @@ When artificial intelligence models are trained indiscriminately on unverified w
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 36).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
     readingTimeMinutes: 4,
-    imageUrl: '/src/assets/images/hero_editorial_world_1792529244145.jpg',
+    imageUrl: '/images/hero_editorial_world_1792529244145.jpg',
     imageAttribution: 'International Press Institute Archive',
     isAiAssisted: false,
   },
@@ -466,7 +466,7 @@ The claim that an extreme solar storm will trigger immediate continental blackou
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(),
     readingTimeMinutes: 3,
-    imageUrl: '/src/assets/images/climate_satellite_earth_1792529244464.jpg',
+    imageUrl: '/images/climate_satellite_earth_1792529244464.jpg',
     imageAttribution: 'NOAA Space Weather Prediction Center / ESA Telemetry',
     isAiAssisted: false,
   },
@@ -494,7 +494,7 @@ Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emergin
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     readingTimeMinutes: 5,
-    imageUrl: '/src/assets/images/science_discovery_lab_1792529244932.jpg',
+    imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
     imageAttribution: 'National Library of Medicine / Open Science Framework',
     isAiAssisted: false,
   },
@@ -516,6 +516,8 @@ export class EditorialStore {
     this.initStore();
   }
 
+  private isSeeded = false;
+
   private initStore() {
     try {
       if (!fs.existsSync(DATA_DIR)) {
@@ -523,14 +525,34 @@ export class EditorialStore {
       }
 
       if (fs.existsSync(STORE_FILE)) {
-        const raw = fs.readFileSync(STORE_FILE, 'utf-8');
-        const data = JSON.parse(raw);
+        let data: any = null;
+        try {
+          const raw = fs.readFileSync(STORE_FILE, 'utf-8');
+          data = JSON.parse(raw);
+        } catch (parseErr: any) {
+          // Preserve recoverable copy of corrupt store; NEVER silently overwrite
+          const corruptBackup = `${STORE_FILE}.corrupt.${Date.now()}.bak`;
+          try {
+            fs.copyFileSync(STORE_FILE, corruptBackup);
+            console.error(`[EditorialStore CRITICAL] Malformed JSON detected in ${STORE_FILE}. Preserved backup at ${corruptBackup}. Error:`, parseErr.message);
+          } catch (copyErr) {
+            console.error(`[EditorialStore CRITICAL] Could not backup corrupt store:`, copyErr);
+          }
+          // Do NOT erase data or overwrite corrupt file with seed data
+          return;
+        }
 
-        // Merge seed articles with existing stored articles
+        this.isSeeded = Boolean(data.isSeeded);
         const existingArticles: EditorialArticle[] = data.articles || [];
-        const existingIds = new Set(existingArticles.map((a) => a.id));
-        const missingSeeds = SEED_ARTICLES.filter((s) => !existingIds.has(s.id));
-        this.articles = [...existingArticles, ...missingSeeds];
+
+        if (!this.isSeeded && existingArticles.length === 0) {
+          // First-time initialization only: seed initial editorial explainers
+          this.articles = SEED_ARTICLES;
+          this.isSeeded = true;
+        } else {
+          // Respect user modifications: never resurrect deleted demonstration articles
+          this.articles = existingArticles;
+        }
 
         this.subscribers = data.subscribers || [];
         this.users = data.users || INITIAL_USERS;
@@ -542,6 +564,7 @@ export class EditorialStore {
         this.persist();
       } else {
         this.articles = SEED_ARTICLES;
+        this.isSeeded = true;
         this.subscribers = [];
         this.users = INITIAL_USERS;
         this.monetization = DEFAULT_MONETIZATION;
@@ -551,47 +574,47 @@ export class EditorialStore {
         this.analyticsEvents = [];
         this.persist();
       }
-    } catch {
-      this.articles = SEED_ARTICLES;
-      this.subscribers = [];
-      this.users = INITIAL_USERS;
-      this.monetization = DEFAULT_MONETIZATION;
-      this.affiliateLinks = INITIAL_AFFILIATE_LINKS;
-      this.sponsorshipInquiries = INITIAL_SPONSOR_INQUIRIES;
-      this.patrons = INITIAL_PATRONS;
-      this.analyticsEvents = [];
+    } catch (err: any) {
+      console.error(`[EditorialStore] Initialization diagnostics:`, err?.message || err);
     }
 
     // Periodically check scheduled posts every 60 seconds
     setInterval(() => this.checkScheduledPublishes(), 60000);
   }
 
+  // Atomic file write strategy: write to temp file in same directory, then rename atomically
   private persist() {
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
       }
-      fs.writeFileSync(
-        STORE_FILE,
-        JSON.stringify(
-          {
-            articles: this.articles,
-            subscribers: this.subscribers,
-            users: this.users,
-            monetization: this.monetization,
-            affiliateLinks: this.affiliateLinks,
-            sponsorshipInquiries: this.sponsorshipInquiries,
-            patrons: this.patrons,
-            analyticsEvents: this.analyticsEvents.slice(-500), // Keep recent 500 events
-            lastSavedAt: new Date().toISOString(),
-          },
-          null,
-          2
-        ),
-        'utf-8'
+
+      const tempFile = path.resolve(
+        DATA_DIR,
+        `.editorialStore.tmp.${Date.now()}.${crypto.randomBytes(4).toString('hex')}`
       );
-    } catch {
-      // In-memory fallback if file write restricted
+
+      const payload = JSON.stringify(
+        {
+          isSeeded: this.isSeeded,
+          articles: this.articles,
+          subscribers: this.subscribers,
+          users: this.users,
+          monetization: this.monetization,
+          affiliateLinks: this.affiliateLinks,
+          sponsorshipInquiries: this.sponsorshipInquiries,
+          patrons: this.patrons,
+          analyticsEvents: this.analyticsEvents.slice(-500), // Keep recent 500 events
+          lastSavedAt: new Date().toISOString(),
+        },
+        null,
+        2
+      );
+
+      fs.writeFileSync(tempFile, payload, 'utf-8');
+      fs.renameSync(tempFile, STORE_FILE);
+    } catch (err: any) {
+      console.error(`[EditorialStore] Atomic persistence warning:`, err?.message || err);
     }
   }
 

@@ -55,6 +55,51 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
     };
   }, [categoryId]);
 
+  // Translate category news items when a non-English language is active
+  useEffect(() => {
+    if (currentLanguage === 'en' || news.length === 0) return;
+    let isMounted = true;
+
+    const needsTranslation = news.some(
+      (n) => !n.isTranslated || n.translationLanguage !== currentLanguage
+    );
+    if (!needsTranslation) return;
+
+    fetch('/api/news/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: news.slice(0, 20).map((n) => ({ id: n.id, title: n.title, summary: n.summary })),
+        targetLanguage: currentLanguage,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data.items)) return;
+        const map = new Map<string, any>(data.items.map((it: any) => [it.id, it]));
+        setNews((prev) =>
+          prev.map((n) => {
+            const tr = map.get(n.id);
+            if (tr && tr.isTranslated) {
+              return {
+                ...n,
+                translatedTitle: tr.translatedTitle,
+                translatedSummary: tr.translatedSummary,
+                isTranslated: true,
+                translationLanguage: currentLanguage,
+              };
+            }
+            return n;
+          })
+        );
+      })
+      .catch((err) => console.warn('Category news translation skipped:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentLanguage, news.length, categoryId]);
+
   // If this is a sports category, filter relevant fixtures and standings
   const relevantFixtures = categoryDef.sportKey
     ? allFixtures.filter((f) => f.sport === categoryDef.sportKey)
@@ -162,10 +207,14 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                     onClick={() => onOpenArticle(item)}
                     className="text-base sm:text-lg font-bold font-editorial text-slate-950 dark:text-white leading-snug hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors mb-3"
                   >
-                    {item.title}
+                    {item.isTranslated && item.translationLanguage === currentLanguage && item.translatedTitle
+                      ? item.translatedTitle
+                      : item.title}
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-sans line-clamp-3">
-                    {item.summary}
+                    {item.isTranslated && item.translationLanguage === currentLanguage && item.translatedSummary
+                      ? item.translatedSummary
+                      : item.summary}
                   </p>
                 </div>
 

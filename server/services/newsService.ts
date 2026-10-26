@@ -1,30 +1,201 @@
 import crypto from 'crypto';
 import { XMLParser } from 'fast-xml-parser';
 import { memoryCache } from './cache.ts';
-import { NewsItem } from './types.ts';
+import { NewsItem, ProviderStatus } from './types.ts';
 
 const xmlParser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
 });
 
-// Category mapping helper
-export function normalizeCategory(cat: string): string {
-  const c = cat.toLowerCase();
-  if (c.includes('break')) return 'breaking';
-  if (c.includes('politic') || c.includes('govern') || c.includes('election')) return 'politics';
-  if (c.includes('econ') || c.includes('busin') || c.includes('market') || c.includes('financ')) return 'business';
-  if (c.includes('tech') || c.includes('ai') || c.includes('artificial')) return 'technology';
-  if (c.includes('sci') || c.includes('space') || c.includes('astronomy') || c.includes('physics')) return 'science';
-  if (c.includes('health') || c.includes('medic') || c.includes('disease') || c.includes('virus')) return 'health';
-  if (c.includes('environ') || c.includes('climat') || c.includes('weather') || c.includes('disaster')) return 'environment';
-  if (c.includes('sport') || c.includes('football') || c.includes('cricket') || c.includes('tennis')) return 'sports';
-  if (c.includes('cultur') || c.includes('entertain') || c.includes('art') || c.includes('film')) return 'culture';
-  if (c.includes('fact') || c.includes('check')) return 'fact-checks';
-  return 'world';
+export interface FeedConfig {
+  id: string;
+  name: string;
+  url: string;
+  publisher: string;
+  defaultCategory: string;
+  sourceType: 'wire' | 'press_release' | 'institutional' | 'broadcast';
 }
 
-function cleanHtml(html?: string): string {
+export interface FeedHealthStatus {
+  id: string;
+  name: string;
+  url: string;
+  publisher: string;
+  category: string;
+  status: 'active' | 'degraded' | 'offline';
+  lastPing: string;
+  lastSuccess?: string;
+  lastError?: string;
+  latencyMs: number;
+  itemCount: number;
+}
+
+// 19 verified, genuinely free public RSS feeds across BBC, Al Jazeera, Sky News, Deutsche Welle, France 24, NASA, WHO, and The Guardian
+export const CONFIGURED_FEEDS: FeedConfig[] = [
+  // BBC News (6 public feeds)
+  {
+    id: 'bbc-top',
+    name: 'BBC News - Top Stories',
+    url: 'https://feeds.bbci.co.uk/news/rss.xml',
+    publisher: 'BBC News',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'bbc-world',
+    name: 'BBC News - World',
+    url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
+    publisher: 'BBC News',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'bbc-business',
+    name: 'BBC News - Business & Economy',
+    url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
+    publisher: 'BBC News',
+    defaultCategory: 'business',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'bbc-tech',
+    name: 'BBC News - Technology & AI',
+    url: 'https://feeds.bbci.co.uk/news/technology/rss.xml',
+    publisher: 'BBC News',
+    defaultCategory: 'technology',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'bbc-science',
+    name: 'BBC News - Science & Environment',
+    url: 'https://feeds.bbci.co.uk/news/science_and_environment/rss.xml',
+    publisher: 'BBC News',
+    defaultCategory: 'science',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'bbc-sport',
+    name: 'BBC Sport - Wire Dispatches',
+    url: 'https://feeds.bbci.co.uk/sport/rss.xml',
+    publisher: 'BBC Sport',
+    defaultCategory: 'sports',
+    sourceType: 'broadcast',
+  },
+
+  // International Publishers (5 feeds)
+  {
+    id: 'aljazeera',
+    name: 'Al Jazeera English - Global Wire',
+    url: 'https://www.aljazeera.com/xml/rss/all.xml',
+    publisher: 'Al Jazeera English',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'skynews-home',
+    name: 'Sky News - Top Headlines',
+    url: 'https://feeds.skynews.com/feeds/rss/home.xml',
+    publisher: 'Sky News',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'skynews-world',
+    name: 'Sky News - World Affairs',
+    url: 'https://feeds.skynews.com/feeds/rss/world.xml',
+    publisher: 'Sky News',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'dw',
+    name: 'Deutsche Welle - English Top News',
+    url: 'https://rss.dw.com/rdf/rss-en-top',
+    publisher: 'Deutsche Welle',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+  {
+    id: 'france24',
+    name: 'France 24 - International Wire',
+    url: 'https://www.france24.com/en/rss',
+    publisher: 'France 24',
+    defaultCategory: 'world',
+    sourceType: 'broadcast',
+  },
+
+  // Science & Institutional (3 feeds)
+  {
+    id: 'nasa-news',
+    name: 'NASA - Breaking News & Press Releases',
+    url: 'https://www.nasa.gov/news-release/feed/',
+    publisher: 'NASA Space & Science',
+    defaultCategory: 'science',
+    sourceType: 'institutional',
+  },
+  {
+    id: 'nasa-iotd',
+    name: 'NASA - Missions & Observatories',
+    url: 'https://www.nasa.gov/feeds/iotd-feed/',
+    publisher: 'NASA Space & Science',
+    defaultCategory: 'science',
+    sourceType: 'institutional',
+  },
+  {
+    id: 'who',
+    name: 'World Health Organization - Disease & Health Alerts',
+    url: 'https://www.who.int/rss-feeds/news-english.xml',
+    publisher: 'World Health Organization',
+    defaultCategory: 'health',
+    sourceType: 'institutional',
+  },
+
+  // The Guardian Open Public RSS (5 feeds)
+  {
+    id: 'guardian-world',
+    name: 'The Guardian - World Affairs',
+    url: 'https://www.theguardian.com/world/rss',
+    publisher: 'The Guardian',
+    defaultCategory: 'world',
+    sourceType: 'wire',
+  },
+  {
+    id: 'guardian-science',
+    name: 'The Guardian - Science & Research',
+    url: 'https://www.theguardian.com/science/rss',
+    publisher: 'The Guardian',
+    defaultCategory: 'science',
+    sourceType: 'wire',
+  },
+  {
+    id: 'guardian-tech',
+    name: 'The Guardian - Technology',
+    url: 'https://www.theguardian.com/technology/rss',
+    publisher: 'The Guardian',
+    defaultCategory: 'technology',
+    sourceType: 'wire',
+  },
+  {
+    id: 'guardian-biz',
+    name: 'The Guardian - Business & Financial Markets',
+    url: 'https://www.theguardian.com/business/rss',
+    publisher: 'The Guardian',
+    defaultCategory: 'business',
+    sourceType: 'wire',
+  },
+  {
+    id: 'guardian-sport',
+    name: 'The Guardian - Sports',
+    url: 'https://www.theguardian.com/sport/rss',
+    publisher: 'The Guardian',
+    defaultCategory: 'sports',
+    sourceType: 'wire',
+  },
+];
+
+// Clean and unescape raw HTML strings
+export function cleanHtml(html?: string): string {
   if (!html) return '';
   return html
     .replace(/<[^>]*>?/gm, '')
@@ -34,236 +205,308 @@ function cleanHtml(html?: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&nbsp;/g, ' ')
+    .replace(/&ndash;/g, '–')
+    .replace(/&mdash;/g, '—')
+    .replace(/&hellip;/g, '…')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Seed baseline articles to ensure zero-blank states if third-party endpoints are throttled
-const BASELINE_ARTICLES: NewsItem[] = [
-  {
-    id: 'base-1',
-    title: 'James Webb Space Telescope Identifies Atmospheric Water Vapor on Habitable-Zone Exoplanet',
-    summary: 'Spectroscopic observations confirm distinct atmospheric absorption signatures of water vapor and methane in the atmosphere of K2-18b, an exoplanet 120 light-years away.',
-    content: 'Astronomers utilizing the James Webb Space Telescope (JWST) Near-Infrared Spectrograph have reported definitive spectral signatures indicating water vapor in the atmosphere of sub-Neptune exoplanet K2-18b. The findings, published in the Astrophysical Journal Letters, provide significant empirical data on planetary atmospheres within the habitable zone of red dwarf stars. Researchers emphasized that while atmospheric composition is confirmed, surface conditions remain under active investigation.',
-    publisher: 'NASA / ESA Research Collaboration',
-    author: 'Astrophysics Division',
-    url: 'https://www.nasa.gov/mission_pages/webb/main/index.html',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 35).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'science',
-    subcategory: 'astronomy',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'NASA/ESA/CSA Space Science Archive',
-    tags: ['JWST', 'Exoplanet', 'Astronomy', 'Atmospheric Physics'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'verified',
-    verificationDetails: 'Confirmed through peer-reviewed spectroscopic datasets from JWST Cycle 2 observations.',
-    sourceType: 'academic'
-  },
-  {
-    id: 'base-2',
-    title: 'International Renewable Energy Agency Reports Record 473 GW Clean Capacity Expansion in 2025-2026',
-    summary: 'Global renewable capacity additions reached unprecedented levels driven by solar photovoltaic deployment and offshore wind grid connections across Europe, Asia, and North America.',
-    content: 'The International Renewable Energy Agency (IRENA) published its annual renewable power capacity statistics, documenting an unprecedented addition of 473 gigawatts worldwide. Solar PV accounted for 73% of new installations, while battery energy storage integration reached parity pricing in multiple wholesale power markets.',
-    publisher: 'IRENA Energy Statistical Review',
-    author: 'Global Energy Transition Bureau',
-    url: 'https://www.irena.org/Publications',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 85).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'environment',
-    subcategory: 'clean-energy',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1466611653911-95081537e5b7?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'Global Renewable Energy Archive',
-    tags: ['Renewables', 'Climate Policy', 'Energy Transition', 'Solar PV'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'verified',
-    verificationDetails: 'Institutional reporting compiled from 160 member state statistical submissions.',
-    sourceType: 'institutional'
-  },
-  {
-    id: 'base-3',
-    title: 'World Health Organization Concludes Global Influenza & Pathogen Surveillance Summit in Geneva',
-    summary: 'Epidemiologists and delegates from 124 nations agree on standardized genomic sequencing data sharing protocols for emerging seasonal and zoonotic pathogen strains.',
-    content: 'The WHO Global Influenza Surveillance and Response System (GISRS) concluded its four-day technical consultation in Geneva, adopting updated guidelines for near-real-time genomic sharing. The framework strengthens international response capabilities against novel viral variants without imposing proprietary patent restrictions on diagnostic reagents.',
-    publisher: 'World Health Organization',
-    author: 'Epidemic & Pandemic Preparedness Division',
-    url: 'https://www.who.int/emergencies/diseases',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 140).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'health',
-    subcategory: 'epidemiology',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'United Nations Information Service',
-    tags: ['WHO', 'Public Health', 'Genomic Surveillance', 'Infectious Disease'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'official_statement',
-    verificationDetails: 'Official WHO Communique released from Geneva Headquarters.',
-    sourceType: 'institutional'
-  },
-  {
-    id: 'base-4',
-    title: 'European Central Bank and Federal Reserve Align Supervisory Frameworks for Algorithmic Liquidity',
-    summary: 'Central bank regulators announce harmonized stress-testing guidelines for high-frequency algorithmic liquidity providers in sovereign bond and swap markets.',
-    content: 'Following joint consultative meetings, the European Central Bank and the US Federal Reserve Board released an aligned regulatory framework addressing flash volatility risks in sovereign debt markets. The rules mandate circuit breakers and capital reservation buffers for automated liquidity providers operating above defined transactional thresholds.',
-    publisher: 'Financial Regulatory Review / Reuters Syndication',
-    author: 'Central Banking Policy Desk',
-    url: 'https://www.ecb.europa.eu/press/html/index.en.html',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 210).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'business',
-    subcategory: 'finance',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'Financial Press International',
-    tags: ['Finance', 'Central Banks', 'Macroeconomics', 'Market Stability'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'verified',
-    verificationDetails: 'Published simultaneously across ECB Press and Federal Reserve Regulatory Releases.',
-    sourceType: 'wire'
-  },
-  {
-    id: 'base-5',
-    title: 'Breakthrough in Solid-State Electrolytes Accelerates Next-Generation Lithium Metal Battery Trials',
-    summary: 'Materials science researchers synthesize an ultra-thin sulfide-based solid electrolyte achieving 1,200 continuous fast-charge cycles at ambient temperatures.',
-    content: 'A consortium of university researchers led by the Max Planck Institute and MIT have demonstrated a novel sulfide solid-state electrolyte with ionic conductivity surpassing traditional liquid carbonate solvents. The design prevents lithium dendrite propagation at current densities of 10 mA/cm², marking a critical milestone toward commercial solid-state automotive packs.',
-    publisher: 'Nature Materials Review',
-    author: 'Solid-State Battery Consortium',
-    url: 'https://www.nature.com/materials',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 280).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'technology',
-    subcategory: 'energy-tech',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1558441719-8b449c6ff673?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'Materials Science Research Archives',
-    tags: ['Batteries', 'Solid-State', 'Materials Science', 'Clean Tech'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'verified',
-    verificationDetails: 'Peer-reviewed research published with full open-access replication code and datasets.',
-    sourceType: 'academic'
-  },
-  {
-    id: 'base-6',
-    title: 'Fact Check: Verification Analysis of Viral Satellite Imagery Claims Regarding Arctic Sea Ice Collapse',
-    summary: 'Scientific analysis of European Copernicus and NASA CryoSat-2 telemetry refutes fabricated social media claims of complete multi-year ice loss in early autumn.',
-    content: 'FactInfoLive independent fact-checking team examined viral posts asserting that Arctic multi-year ice pack completely disappeared during late September. Telemetry data from the National Snow and Ice Data Center (NSIDC) and Copernicus Sentinel-3 confirms that while seasonal minimum extent ranked sixth lowest on record, approximately 4.28 million square kilometers of sea ice were present. Claims of complete melt are demonstrably false.',
-    publisher: 'FactInfoLive Verification Unit',
-    author: 'Climate Fact-Check Team',
-    url: 'https://nsidc.org/arcticseaicenews/',
-    publishedAt: new Date(Date.now() - 1000 * 60 * 320).toISOString(),
-    retrievedAt: new Date().toISOString(),
-    category: 'fact-checks',
-    subcategory: 'scientific-verification',
-    language: 'en',
-    imageUrl: 'https://images.unsplash.com/photo-1517411032315-54ef2cb783bb?q=80&w=1200&auto=format&fit=crop',
-    imageAttribution: 'Sentinel-3 Earth Observation Fleet',
-    tags: ['Fact Check', 'Climate Science', 'Satellite Telemetry', 'Verification'],
-    isBreaking: false,
-    isDeveloping: false,
-    factCheckStatus: 'verified',
-    verificationDetails: 'Cross-checked against NSIDC, Copernicus Climate Change Service, and Danish Meteorological Institute.',
-    sourceType: 'institutional'
+// Category mapping helper
+export function normalizeCategory(cat: string): string {
+  const c = cat.toLowerCase();
+  if (c.includes('break')) return 'breaking';
+  if (c.includes('politic') || c.includes('govern') || c.includes('election') || c.includes('senate') || c.includes('parliament')) return 'politics';
+  if (c.includes('econ') || c.includes('busin') || c.includes('market') || c.includes('financ') || c.includes('trade') || c.includes('money')) return 'business';
+  if (c.includes('tech') || c.includes('ai') || c.includes('artificial') || c.includes('cyber') || c.includes('software')) return 'technology';
+  if (c.includes('sci') || c.includes('space') || c.includes('astronomy') || c.includes('physics') || c.includes('cosmos')) return 'science';
+  if (c.includes('health') || c.includes('medic') || c.includes('disease') || c.includes('virus') || c.includes('pharma') || c.includes('epidemic')) return 'health';
+  if (c.includes('environ') || c.includes('climat') || c.includes('weather') || c.includes('wildfire') || c.includes('storm')) return 'environment';
+  if (c.includes('sport') || c.includes('football') || c.includes('soccer') || c.includes('cricket') || c.includes('tennis') || c.includes('rugby') || c.includes('f1')) return 'sports';
+  if (c.includes('cultur') || c.includes('entertain') || c.includes('art') || c.includes('film') || c.includes('music')) return 'culture';
+  if (c.includes('fact') || c.includes('check')) return 'fact-checks';
+  return 'world';
+}
+
+// Determines accurate topic category from item tags, feed default, title, and summary
+export function determineCategory(item: any, defaultCat: string, title: string, summary: string): string {
+  // 1. Inspect RSS item category tags or dc:subject
+  const rawCat = item.category || item['dc:subject'] || '';
+  let categoryCandidates: string[] = [];
+  if (Array.isArray(rawCat)) {
+    categoryCandidates = rawCat.map((c) => (typeof c === 'string' ? c : c?.['#text'] || ''));
+  } else if (typeof rawCat === 'string') {
+    categoryCandidates = [rawCat];
+  } else if (rawCat?.['#text']) {
+    categoryCandidates = [rawCat['#text']];
   }
-];
+
+  for (const candidate of categoryCandidates) {
+    const normalized = normalizeCategory(candidate);
+    if (normalized !== 'world') {
+      return normalized;
+    }
+  }
+
+  // 2. If feed is dedicated (e.g. sports, business, technology, science, health, environment), preserve it unless title contradicts
+  const normalizedDefault = normalizeCategory(defaultCat);
+  if (normalizedDefault !== 'world') {
+    return normalizedDefault;
+  }
+
+  // 3. For general world/top news feeds, inspect headline & summary for clear domain signals
+  const combinedText = `${title} ${summary}`.toLowerCase();
+  if (/\b(premier league|champions league|formula one|grand prix|wimbledon|nba|nfl|world cup|cricket|tennis|striker|derby|quarterback)\b/i.test(combinedText)) {
+    return 'sports';
+  }
+  if (/\b(wall street|inflation|federal reserve|interest rate|stock market|shares|dow jones|nasdaq|gdp|recession|ftse|central bank)\b/i.test(combinedText)) {
+    return 'business';
+  }
+  if (/\b(artificial intelligence|chatgpt|openai|semiconductor|cyberattack|quantum computer|deep learning|software patch|ransomware|gpu)\b/i.test(combinedText)) {
+    return 'technology';
+  }
+  if (/\b(nasa|james webb|astronomers|exoplanet|hubble|supernova|quantum physics|black hole|mars rover|spacewalk|esa telescope)\b/i.test(combinedText)) {
+    return 'science';
+  }
+  if (/\b(who|vaccine|cancer|pathogen|clinical trial|epidemic|hospital|avian flu|surgeon|pandemic|cholera|outbreak)\b/i.test(combinedText)) {
+    return 'health';
+  }
+  if (/\b(wildfire|hurricane|typhoon|carbon emissions|climate summit|global heating|cop\d+|drought|biodiversity)\b/i.test(combinedText)) {
+    return 'environment';
+  }
+  if (/\b(election|presidential|prime minister|parliament|congress|senate|referendum|legislation|democrat|republican|diplomatic summit)\b/i.test(combinedText)) {
+    return 'politics';
+  }
+
+  return 'world';
+}
+
+// Extract thumbnail/enclosure image from RSS item with fallbacks
+export function extractImageUrl(item: any): string | undefined {
+  // 1. media:content (object or array)
+  if (item['media:content']) {
+    const mc = item['media:content'];
+    if (Array.isArray(mc)) {
+      const img = mc.find((m) => m['@_medium'] === 'image' || m['@_url']?.match(/\.(jpg|jpeg|png|webp)/i));
+      if (img?.['@_url']) return img['@_url'];
+      if (mc[0]?.['@_url']) return mc[0]['@_url'];
+    } else if (mc['@_url']) {
+      return mc['@_url'];
+    }
+  }
+
+  // 2. media:thumbnail (object or array)
+  if (item['media:thumbnail']) {
+    const mt = item['media:thumbnail'];
+    if (Array.isArray(mt) && mt[0]?.['@_url']) return mt[0]['@_url'];
+    if (mt['@_url']) return mt['@_url'];
+  }
+
+  // 3. enclosure
+  if (item.enclosure) {
+    const enc = item.enclosure;
+    if (Array.isArray(enc)) {
+      const img = enc.find((e) => e['@_type']?.startsWith('image') || e['@_url']?.match(/\.(jpg|jpeg|png|webp)/i));
+      if (img?.['@_url']) return img['@_url'];
+    } else if (enc['@_url'] && (enc['@_type']?.startsWith('image') || enc['@_url']?.match(/\.(jpg|jpeg|png|webp)/i))) {
+      return enc['@_url'];
+    }
+  }
+
+  // 4. Embedded <img> in description or content:encoded
+  const htmlContent = `${item['content:encoded'] || ''} ${item.description || ''}`;
+  const match = htmlContent.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
+  if (match && match[1] && !match[1].includes('feedburner') && !match[1].includes('1x1') && !match[1].includes('pixel')) {
+    return match[1];
+  }
+
+  return undefined;
+}
+
+// Clean URL removing analytics/traffic parameters to facilitate deduplication
+export function normalizeUrl(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    parsed.searchParams.delete('utm_source');
+    parsed.searchParams.delete('utm_medium');
+    parsed.searchParams.delete('utm_campaign');
+    parsed.searchParams.delete('traffic_source');
+    parsed.searchParams.delete('maca');
+    return parsed.toString();
+  } catch {
+    return rawUrl.trim();
+  }
+}
 
 export class NewsService {
   private lastFetchTime: number = 0;
   private readonly CACHE_KEY = 'all_normalized_news';
-  private readonly CACHE_TTL = 300; // 5 minutes
+  private readonly CACHE_TTL = 300; // 5 minutes cache to protect upstream publishers
+  private feedStatuses: Map<string, FeedHealthStatus> = new Map();
 
-  async fetchRssFeed(url: string, defaultPublisher: string, defaultCategory: string): Promise<NewsItem[]> {
+  constructor() {
+    // Initialize feed status registry
+    for (const feed of CONFIGURED_FEEDS) {
+      this.feedStatuses.set(feed.id, {
+        id: feed.id,
+        name: feed.name,
+        url: feed.url,
+        publisher: feed.publisher,
+        category: feed.defaultCategory,
+        status: 'active',
+        lastPing: new Date().toISOString(),
+        latencyMs: 0,
+        itemCount: 0,
+      });
+    }
+  }
+
+  // Fetch and parse a single RSS feed with timeout and metrics recording
+  async fetchRssFeed(feed: FeedConfig, maxItems = 15): Promise<NewsItem[]> {
+    const startTime = Date.now();
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5s safe timeout
 
-      const response = await fetch(url, {
+      const response = await fetch(feed.url, {
         signal: controller.signal,
         headers: {
-          'User-Agent': 'FactInfoLive-IntelligencePlatform/1.0 (https://factinfolive.org; news-bot@factinfolive.org)',
-          'Accept': 'application/rss+xml, application/xml, text/xml',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 FactInfoLive/1.0 (https://factinfolive.org; news-bot@factinfolive.org)',
+          Accept: 'application/rss+xml, application/xml, text/xml, */*',
         },
       });
 
       clearTimeout(timeoutId);
+      const latencyMs = Date.now() - startTime;
 
       if (!response.ok) {
+        this.feedStatuses.set(feed.id, {
+          ...this.feedStatuses.get(feed.id)!,
+          status: 'degraded',
+          lastPing: new Date().toISOString(),
+          lastError: `HTTP ${response.status} ${response.statusText}`,
+          latencyMs,
+        });
         return [];
       }
 
       const xmlText = await response.text();
       const parsed = xmlParser.parse(xmlText);
-      const items = parsed?.rss?.channel?.item || parsed?.feed?.entry || [];
-      const itemArray = Array.isArray(items) ? items : [items];
+      const items =
+        parsed?.rss?.channel?.item ||
+        parsed?.feed?.entry ||
+        parsed?.['rdf:RDF']?.item ||
+        [];
+      const itemArray = Array.isArray(items) ? items : items ? [items] : [];
 
       const results: NewsItem[] = [];
 
-      for (let i = 0; i < Math.min(itemArray.length, 25); i++) {
+      for (let i = 0; i < Math.min(itemArray.length, maxItems); i++) {
         const item = itemArray[i];
         if (!item || !item.title) continue;
 
         const rawTitle = typeof item.title === 'string' ? item.title : item.title?.['#text'] || '';
-        const title = cleanHtml(rawTitle);
-        const rawDesc = item.description || item.summary || item['content:encoded'] || '';
-        const summary = cleanHtml(typeof rawDesc === 'string' ? rawDesc : rawDesc?.['#text'] || '').slice(0, 320);
-        const itemUrl = item.link || (item['feedburner:origLink']) || item.guid?.['#text'] || (typeof item.guid === 'string' ? item.guid : '');
-        const pubDateStr = item.pubDate || item.published || item.updated;
-        const pubDate = pubDateStr ? new Date(pubDateStr).toISOString() : new Date().toISOString();
+        const title = cleanHtml(rawTitle)
+          .replace(/\s*-\s*(BBC News|The Guardian|Sky News|Al Jazeera|DW|France 24)$/i, '')
+          .trim();
+        if (!title) continue;
 
-        // Check image enclosures or media:content
-        let imageUrl = '';
-        if (item['media:content']?.['@_url']) {
-          imageUrl = item['media:content']['@_url'];
-        } else if (item['media:thumbnail']?.['@_url']) {
-          imageUrl = item['media:thumbnail']['@_url'];
-        } else if (item.enclosure?.['@_url']) {
-          imageUrl = item.enclosure['@_url'];
+        const rawDesc = item.description || item.summary || item['content:encoded'] || '';
+        const summary = cleanHtml(typeof rawDesc === 'string' ? rawDesc : rawDesc?.['#text'] || '').slice(0, 360);
+
+        const rawLink =
+          (typeof item.link === 'string' ? item.link : item.link?.['@_href']) ||
+          item['feedburner:origLink'] ||
+          (typeof item.guid === 'string' ? item.guid : item.guid?.['#text'] || '');
+        const cleanLink = normalizeUrl(rawLink);
+
+        // Date extraction (RFC 822 pubDate, ISO published/updated, Dublin Core dc:date)
+        const pubDateRaw =
+          item.pubDate ||
+          item.published ||
+          item.updated ||
+          item['dc:date'] ||
+          item['a10:updated'];
+        let publishedAt = new Date().toISOString();
+        if (pubDateRaw) {
+          const parsedDate = new Date(pubDateRaw);
+          if (!isNaN(parsedDate.getTime())) {
+            publishedAt = parsedDate.toISOString();
+          }
         }
 
-        const hashInput = `${itemUrl || ''}::${title || ''}::${pubDate}`;
+        const imageUrl = extractImageUrl(item);
+        const category = determineCategory(item, feed.defaultCategory, title, summary);
+        const hashInput = `${cleanLink}::${title}::${publishedAt}`;
         const id = 'rss-' + crypto.createHash('sha256').update(hashInput).digest('hex').slice(0, 20);
+
+        // Fact-check status: institutional releases are official statements; wire reports are attribution-preserved analysis
+        const isInstitutional = feed.sourceType === 'institutional';
+        const factCheckStatus = isInstitutional
+          ? 'official_statement'
+          : category === 'fact-checks'
+          ? 'verified'
+          : 'analysis';
 
         results.push({
           id,
           title,
           summary: summary || title,
-          publisher: defaultPublisher,
-          author: item['dc:creator'] || item.author?.name || defaultPublisher,
-          url: itemUrl || 'https://www.theguardian.com',
-          publishedAt: pubDate,
+          publisher: feed.publisher,
+          author: item['dc:creator'] || item.author?.name || feed.publisher,
+          url: cleanLink || feed.url,
+          publishedAt,
           retrievedAt: new Date().toISOString(),
-          category: normalizeCategory(defaultCategory),
-          subcategory: defaultCategory,
+          category,
+          subcategory: feed.defaultCategory,
           language: 'en',
-          imageUrl: imageUrl || undefined,
-          tags: [defaultCategory, defaultPublisher],
+          imageUrl,
+          tags: [category, feed.publisher],
           isBreaking: false,
-          isDeveloping: false,
-          factCheckStatus: 'verified',
-          verificationDetails: `Retrieved via official ${defaultPublisher} RSS Wire syndication.`,
-          sourceType: 'wire',
+          isDeveloping: isInstitutional ? false : true,
+          factCheckStatus,
+          verificationDetails: isInstitutional
+            ? `Institutional communique published by ${feed.publisher}. Preserved in original context.`
+            : `Wire reporting published by ${feed.publisher}. Preserved with original source attribution.`,
+          sourceType: feed.sourceType,
         });
       }
 
+      // Record successful status
+      this.feedStatuses.set(feed.id, {
+        id: feed.id,
+        name: feed.name,
+        url: feed.url,
+        publisher: feed.publisher,
+        category: feed.defaultCategory,
+        status: 'active',
+        lastPing: new Date().toISOString(),
+        lastSuccess: new Date().toISOString(),
+        latencyMs,
+        itemCount: results.length,
+      });
+
       return results;
-    } catch {
-      // Graceful fallback on network timeout/offline
+    } catch (err: any) {
+      this.feedStatuses.set(feed.id, {
+        ...this.feedStatuses.get(feed.id)!,
+        status: 'degraded',
+        lastPing: new Date().toISOString(),
+        lastError: err?.message || 'Connection timeout',
+        latencyMs: Date.now() - startTime,
+      });
       return [];
     }
   }
 
+  // Guardian Open Platform API integration (if GUARDIAN_API_KEY is configured)
   async fetchGuardianApi(apiKey: string): Promise<NewsItem[]> {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-      const url = `https://content.guardianapis.com/search?api-key=${apiKey}&show-fields=headline,trailText,bodyText,thumbnail,byline&page-size=30&order-by=newest`;
+      const url = `https://content.guardianapis.com/search?api-key=${apiKey}&show-fields=headline,trailText,bodyText,thumbnail,byline&page-size=15&order-by=newest`;
       const res = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
 
@@ -274,8 +517,8 @@ export class NewsService {
 
       return results.map((item: any) => ({
         id: 'gdn-' + item.id.replace(/\//g, '-'),
-        title: item.fields?.headline || item.webTitle,
-        summary: cleanHtml(item.fields?.trailText || item.webTitle),
+        title: cleanHtml(item.fields?.headline || item.webTitle),
+        summary: cleanHtml(item.fields?.trailText || item.webTitle).slice(0, 360),
         content: cleanHtml(item.fields?.bodyText || '').slice(0, 1500),
         publisher: 'The Guardian',
         author: item.fields?.byline || 'The Guardian Staff',
@@ -290,7 +533,7 @@ export class NewsService {
         tags: [item.sectionName, 'International'].filter(Boolean),
         isBreaking: false,
         isDeveloping: false,
-        factCheckStatus: 'verified',
+        factCheckStatus: 'analysis',
         verificationDetails: 'Authenticated via The Guardian Open Platform API.',
         sourceType: 'wire',
       }));
@@ -299,46 +542,92 @@ export class NewsService {
     }
   }
 
-  async fetchGdeltGlobal(): Promise<NewsItem[]> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+  // Deduplicate articles by normalized URL and title across different feeds
+  deduplicateArticles(articles: NewsItem[]): NewsItem[] {
+    const seenUrls = new Set<string>();
+    const seenTitles = new Set<string>();
+    const deduplicated: NewsItem[] = [];
 
-      // GDELT 2.0 Doc API (public open research platform)
-      const query = encodeURIComponent('science OR technology OR economy OR health');
-      const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${query}&mode=ArtList&maxrecords=20&format=json`;
+    for (const item of articles) {
+      if (!item.title) continue;
 
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      // Normalized title: alphanumeric lowercase string
+      const normTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!normTitle || normTitle.length < 10) continue;
+      if (seenTitles.has(normTitle)) continue;
 
-      if (!res.ok) return [];
+      // Normalized URL
+      if (item.url) {
+        const normU = normalizeUrl(item.url);
+        if (seenUrls.has(normU)) continue;
+        seenUrls.add(normU);
+      }
 
-      const data = await res.json();
-      const articles = data.articles || [];
-
-      return articles.map((a: any) => ({
-        id: 'gdelt-' + crypto.createHash('sha256').update(`${a.url || ''}::${a.title || ''}::${a.seendate || ''}`).digest('hex').slice(0, 20),
-        title: cleanHtml(a.title),
-        summary: cleanHtml(a.title),
-        publisher: a.domain || 'GDELT Global News Monitor',
-        url: a.url,
-        publishedAt: a.seendate ? new Date(a.seendate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/, '$1-$2-$3T$4:$5:$6Z')).toISOString() : new Date().toISOString(),
-        retrievedAt: new Date().toISOString(),
-        category: 'world',
-        language: a.language || 'en',
-        imageUrl: a.socialimage || undefined,
-        tags: ['GDELT Global Monitor', a.sourcecountry || 'International'],
-        isBreaking: false,
-        isDeveloping: true,
-        factCheckStatus: 'developing',
-        verificationDetails: 'Indexed through GDELT Project Global Database of Events, Language, and Tone.',
-        sourceType: 'wire',
-      }));
-    } catch {
-      return [];
+      seenTitles.add(normTitle);
+      deduplicated.push(item);
     }
+
+    return deduplicated;
   }
 
+  // Multi-Source Balancing Algorithm: ensures fair publisher interleaving
+  // Prevents one publisher from dominating consecutive positions on the homepage
+  balanceMultiSourceNews(articles: NewsItem[]): NewsItem[] {
+    if (articles.length <= 3) return articles;
+
+    // Group items by publisher, sorted by publishedAt descending within each publisher
+    const byPublisher: Map<string, NewsItem[]> = new Map();
+    for (const item of articles) {
+      const list = byPublisher.get(item.publisher) || [];
+      list.push(item);
+      byPublisher.set(item.publisher, list);
+    }
+
+    for (const [, list] of byPublisher.entries()) {
+      list.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    }
+
+    const balanced: NewsItem[] = [];
+    const remaining = [...articles];
+    remaining.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+
+    const recentPublishers: string[] = [];
+
+    while (remaining.length > 0) {
+      // Find candidate whose publisher has NOT appeared twice in a row
+      let pickIdx = remaining.findIndex((item) => {
+        if (recentPublishers.length === 0) return true;
+        const lastPub = recentPublishers[recentPublishers.length - 1];
+        const secondLastPub = recentPublishers.length >= 2 ? recentPublishers[recentPublishers.length - 2] : null;
+
+        // Never 3 times in a row
+        if (lastPub === item.publisher && secondLastPub === item.publisher) {
+          return false;
+        }
+
+        // Strongly prefer alternating publishers in the top 20 items (homepage)
+        if (balanced.length < 24 && lastPub === item.publisher) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (pickIdx === -1) {
+        // Fallback to top remaining item if all available items share the same publisher
+        pickIdx = 0;
+      }
+
+      const [picked] = remaining.splice(pickIdx, 1);
+      balanced.push(picked);
+      recentPublishers.push(picked.publisher);
+      if (recentPublishers.length > 4) recentPublishers.shift();
+    }
+
+    return balanced;
+  }
+
+  // Aggregates all RSS feeds with caching and multi-source balancing
   async getAllNews(forceRefresh = false): Promise<NewsItem[]> {
     if (!forceRefresh) {
       const cached = memoryCache.get<NewsItem[]>(this.CACHE_KEY);
@@ -349,33 +638,23 @@ export class NewsService {
 
     const tasks: Promise<NewsItem[]>[] = [];
 
-    // 1. Guardian API (if key exists) or Guardian RSS feeds
+    // 1. Fetch Guardian API (if key exists) or Guardian RSS feeds
     const guardianKey = process.env.GUARDIAN_API_KEY;
     if (guardianKey && guardianKey.trim() !== '') {
       tasks.push(this.fetchGuardianApi(guardianKey));
-    } else {
-      tasks.push(this.fetchRssFeed('https://www.theguardian.com/world/rss', 'The Guardian', 'world'));
-      tasks.push(this.fetchRssFeed('https://www.theguardian.com/science/rss', 'The Guardian', 'science'));
-      tasks.push(this.fetchRssFeed('https://www.theguardian.com/technology/rss', 'The Guardian', 'technology'));
-      tasks.push(this.fetchRssFeed('https://www.theguardian.com/business/rss', 'The Guardian', 'business'));
     }
 
-    // 2. BBC Public RSS
-    tasks.push(this.fetchRssFeed('https://feeds.bbci.co.uk/news/world/rss.xml', 'BBC News', 'world'));
-    tasks.push(this.fetchRssFeed('https://feeds.bbci.co.uk/news/science_and_environment/rss.xml', 'BBC News', 'science'));
-    tasks.push(this.fetchRssFeed('https://feeds.bbci.co.uk/news/technology/rss.xml', 'BBC News', 'technology'));
-
-    // 3. NASA Breaking Science RSS
-    tasks.push(this.fetchRssFeed('https://www.nasa.gov/news-release/feed/', 'NASA Space & Science', 'science'));
-
-    // 4. WHO Health RSS
-    tasks.push(this.fetchRssFeed('https://www.who.int/rss-feeds/news-english.xml', 'World Health Organization', 'health'));
-
-    // 5. GDELT Global Monitor
-    tasks.push(this.fetchGdeltGlobal());
+    // 2. Fetch all configured public RSS feeds concurrently
+    for (const feed of CONFIGURED_FEEDS) {
+      // If Guardian API is active, skip redundant Guardian RSS to avoid duplicate upstream requests
+      if (guardianKey && feed.publisher === 'The Guardian') {
+        continue;
+      }
+      tasks.push(this.fetchRssFeed(feed));
+    }
 
     const settled = await Promise.allSettled(tasks);
-    const combined: NewsItem[] = [...BASELINE_ARTICLES];
+    const combined: NewsItem[] = [];
 
     for (const res of settled) {
       if (res.status === 'fulfilled' && Array.isArray(res.value)) {
@@ -383,61 +662,69 @@ export class NewsService {
       }
     }
 
-    // Deduplicate by ID, URL, or normalized Title
-    const seenIds = new Set<string>();
-    const seenUrls = new Set<string>();
-    const seenTitles = new Set<string>();
-    const deduplicated: NewsItem[] = [];
+    // Deduplicate cross-syndicated articles
+    const deduplicated = this.deduplicateArticles(combined);
 
-    // Sort by publication date descending
-    combined.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    // Apply multi-source balancing so homepage & ticker show a healthy, diverse news mix
+    const balanced = this.balanceMultiSourceNews(deduplicated);
 
-    for (const item of combined) {
-      if (seenIds.has(item.id)) continue;
-      const normTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!normTitle || seenTitles.has(normTitle)) continue;
-      if (item.url && seenUrls.has(item.url)) continue;
-
-      seenIds.add(item.id);
-      seenTitles.add(normTitle);
-      if (item.url) seenUrls.add(item.url);
-      deduplicated.push(item);
-    }
-
-    // Mark the 2-3 most recent high-impact items as breaking if published within last 4 hours
-    const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-    let breakingCount = 0;
-    for (const item of deduplicated) {
-      if (new Date(item.publishedAt).getTime() > fourHoursAgo && breakingCount < 3) {
+    // Mark breaking news across distinct publishers for the ticker
+    const fourHoursAgo = Date.now() - 6 * 60 * 60 * 1000;
+    const tickerPublishers = new Set<string>();
+    for (const item of balanced) {
+      if (new Date(item.publishedAt).getTime() > fourHoursAgo && !tickerPublishers.has(item.publisher)) {
         item.isBreaking = true;
-        breakingCount++;
+        tickerPublishers.add(item.publisher);
+        if (tickerPublishers.size >= 6) break;
       }
     }
 
+    // Cache the balanced multi-source feed for 5 minutes
     this.lastFetchTime = Date.now();
-    memoryCache.set(this.CACHE_KEY, deduplicated, this.CACHE_TTL);
-    return deduplicated;
+    memoryCache.set(this.CACHE_KEY, balanced, this.CACHE_TTL);
+    return balanced;
   }
 
+  // Get news filtered by topic category with pagination support
   async getNewsByCategory(category: string): Promise<NewsItem[]> {
     const all = await this.getAllNews();
     if (!category || category === 'all' || category === 'home') {
       return all;
     }
     const target = normalizeCategory(category);
-    return all.filter((item) => item.category === target || item.subcategory?.toLowerCase().includes(category.toLowerCase()));
+    return all.filter(
+      (item) => item.category === target || item.subcategory?.toLowerCase().includes(category.toLowerCase())
+    );
   }
 
+  // Multi-source breaking news items for the ticker (each from a distinct publisher)
   async getBreakingNews(): Promise<NewsItem[]> {
     const all = await this.getAllNews();
-    return all.filter((item) => item.isBreaking).slice(0, 5);
+    const breaking = all.filter((item) => item.isBreaking);
+    if (breaking.length >= 3) {
+      return breaking.slice(0, 6);
+    }
+
+    // Fallback: pick the top 5 articles from distinct publishers
+    const picked: NewsItem[] = [];
+    const usedPublishers = new Set<string>();
+    for (const item of all) {
+      if (!usedPublishers.has(item.publisher)) {
+        picked.push(item);
+        usedPublishers.add(item.publisher);
+        if (picked.length >= 6) break;
+      }
+    }
+    return picked;
   }
 
+  // Get single news article by ID
   async getNewsById(id: string): Promise<NewsItem | null> {
     const all = await this.getAllNews();
     return all.find((item) => item.id === id) || null;
   }
 
+  // Full-text search across news headlines, summaries, and publishers
   async searchNews(query: string, category?: string): Promise<NewsItem[]> {
     const all = await this.getAllNews();
     const q = query.toLowerCase().trim();
@@ -458,6 +745,69 @@ export class NewsService {
 
       return matchesQ && matchesCat;
     });
+  }
+
+  // Return real live feed status metrics for transparency modal and /api/sources/status
+  getFeedStatuses(): ProviderStatus[] {
+    const cachedNews = memoryCache.get<NewsItem[]>(this.CACHE_KEY) || [];
+    const statuses: ProviderStatus[] = [];
+
+    // Group feeds by overarching publisher for clean presentation
+    const publisherFeeds: Map<string, FeedHealthStatus[]> = new Map();
+    for (const feed of this.feedStatuses.values()) {
+      const list = publisherFeeds.get(feed.publisher) || [];
+      list.push(feed);
+      publisherFeeds.set(feed.publisher, list);
+    }
+
+    for (const [publisher, feeds] of publisherFeeds.entries()) {
+      const totalItems = cachedNews.filter((n) => n.publisher === publisher).length;
+      const anyActive = feeds.some((f) => f.status === 'active');
+      const avgLatency = Math.round(feeds.reduce((acc, f) => acc + (f.latencyMs || 0), 0) / feeds.length);
+      const lastPing = feeds[0]?.lastPing || new Date().toISOString();
+      const lastSuccess = feeds.find((f) => f.lastSuccess)?.lastSuccess;
+      const lastError = feeds.find((f) => f.lastError)?.lastError;
+
+      const category: ProviderStatus['category'] =
+        publisher.includes('NASA')
+          ? 'science'
+          : publisher.includes('WHO') || publisher.includes('Health')
+          ? 'health'
+          : publisher.includes('Sport')
+          ? 'sports'
+          : 'news';
+
+      const feedNames = feeds.map((f) => f.name.replace(`${publisher} - `, '')).join(', ');
+
+      statuses.push({
+        id: `feed-${publisher.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name: `${publisher} RSS Syndication`,
+        category,
+        type: 'rss',
+        status: anyActive ? 'active' : 'degraded',
+        lastPing,
+        lastSuccess,
+        lastError,
+        latencyMs: avgLatency,
+        cachedRecordsCount: totalItems,
+        details: `Live verified feeds (${feeds.length} endpoints: ${feedNames}). Operating under authorized public RSS terms with zero API keys.`,
+        freeTier: true,
+        requiresKey: false,
+        hasKeyConfigured: true,
+      });
+    }
+
+    return statuses;
+  }
+
+  // Returns count of active articles per publisher
+  getPublisherStats(): Record<string, number> {
+    const cached = memoryCache.get<NewsItem[]>(this.CACHE_KEY) || [];
+    const stats: Record<string, number> = {};
+    for (const item of cached) {
+      stats[item.publisher] = (stats[item.publisher] || 0) + 1;
+    }
+    return stats;
   }
 
   getLastFetchTime(): number {

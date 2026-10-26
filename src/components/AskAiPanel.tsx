@@ -47,7 +47,15 @@ export const AskAiPanel: React.FC<AskAiPanelProps> = ({ currentLanguage }) => {
       });
 
       if (!res.ok) {
-        throw new Error(`Server returned error ${res.status}`);
+        let errorMsg = `Server returned status ${res.status}`;
+        try {
+          const errData = await res.json();
+          if (errData?.error) errorMsg = errData.error;
+        } catch {}
+        if (res.status === 429) {
+          errorMsg = 'Daily AI research query limit reached. Generative queries are capped for today. Live news and sports feeds continue to update normally.';
+        }
+        throw new Error(errorMsg);
       }
 
       const data: AskAssistantResponse = await res.json();

@@ -1420,7 +1420,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                         type="text"
                         value={editingArticle.imageUrl || ''}
                         onChange={(e) => setEditingArticle({ ...editingArticle, imageUrl: e.target.value })}
-                        placeholder="https://... or /src/assets/images/..."
+                        placeholder="https://... or /images/..."
                         className="w-full px-3 py-2 text-xs rounded-lg bg-stone-100 dark:bg-slate-950 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
                       />
                     </div>

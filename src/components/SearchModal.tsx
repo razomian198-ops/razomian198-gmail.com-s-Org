@@ -48,8 +48,42 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       if (res.ok) {
         const data = await res.json();
-        setNewsResults(data.news || []);
+        const news = (data.news || []) as NewsItem[];
         setSportsResults(data.sports || []);
+
+        if (currentLanguage !== 'en' && news.length > 0) {
+          try {
+            const trRes = await fetch('/api/news/translate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                items: news.slice(0, 15).map((n) => ({ id: n.id, title: n.title, summary: n.summary })),
+                targetLanguage: currentLanguage,
+              }),
+            });
+            if (trRes.ok) {
+              const trData = await trRes.json();
+              const map = new Map<string, any>(trData.items?.map((it: any) => [it.id, it]) || []);
+              const translated = news.map((n) => {
+                const tr = map.get(n.id);
+                return tr && tr.isTranslated
+                  ? {
+                      ...n,
+                      translatedTitle: tr.translatedTitle,
+                      translatedSummary: tr.translatedSummary,
+                      isTranslated: true,
+                      translationLanguage: currentLanguage,
+                    }
+                  : n;
+              });
+              setNewsResults(translated);
+              return;
+            }
+          } catch {
+            // Fallback to original
+          }
+        }
+        setNewsResults(news);
       }
     } catch {
       // Fallback
@@ -120,7 +154,9 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                               <span>{item.publisher}</span>
                             </div>
                             <h4 className="text-sm font-semibold text-slate-900 dark:text-stone-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-2">
-                              {item.title}
+                              {item.isTranslated && item.translationLanguage === currentLanguage && item.translatedTitle
+                                ? item.translatedTitle
+                                : item.title}
                             </h4>
                           </div>
                           <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -10,6 +10,7 @@ import { statusService } from './server/services/statusService.ts';
 import { SportType } from './server/services/types.ts';
 import { editorialStore } from './server/services/editorialStore.ts';
 import { editorialAiService } from './server/services/editorialAiService.ts';
+import { factTrailService } from './server/services/factTrailService.ts';
 
 import crypto from 'crypto';
 
@@ -27,10 +28,8 @@ const rateLimits = new Map<string, RateLimitBucket>();
 
 function createRateLimiter(limit: number, windowMs: number, keyPrefix: string = '') {
   return (req: Request, res: Response, next: () => void) => {
-    const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-      req.socket.remoteAddress ||
-      '127.0.0.1';
+    // Use validated req.ip with express trust proxy
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
     const key = `${keyPrefix}:${ip}`;
     const now = Date.now();
     const bucket = rateLimits.get(key) || { tokens: limit, lastRefill: now };
@@ -55,11 +54,28 @@ function createRateLimiter(limit: number, windowMs: number, keyPrefix: string = 
 }
 
 const authRateLimiter = createRateLimiter(5, 15 * 60 * 1000, 'auth'); // 5 attempts per 15 min
-const aiRateLimiter = createRateLimiter(20, 60 * 1000, 'ai');        // 20 requests per minute
-const apiRateLimiter = createRateLimiter(200, 60 * 1000, 'api');     // 200 requests per minute
+const aiRateLimiter = createRateLimiter(
+  parseInt(process.env.AI_RPM_LIMIT || '20', 10),
+  60 * 1000,
+  'ai'
+); // Configurable AI requests per minute
+const translationRateLimiter = createRateLimiter(120, 60 * 1000, 'tr'); // 120 translation requests per minute
+const apiRateLimiter = createRateLimiter(200, 60 * 1000, 'api'); // 200 requests per minute
 
 async function startServer() {
   const app = express();
+
+  // Configure Express proxy trust for Render, Cloudflare, and cloud web services
+  app.set('trust proxy', 1);
+
+  // Security Headers
+  app.use((_req: Request, res: Response, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
 
   // Parse command line arguments (--port 3000, --host 0.0.0.0)
   const portArgIdx = process.argv.indexOf('--port');
@@ -127,10 +143,19 @@ async function startServer() {
   // Apply general API rate limiter to all /api/ routes
   app.use('/api/', apiRateLimiter);
 
+  // Helper: Resolve base URL dynamically from APP_URL or validated request host
+  function getBaseUrl(req: Request): string {
+    const envUrl = process.env.APP_URL?.trim().replace(/\/+$/, '');
+    if (envUrl && envUrl.startsWith('http')) return envUrl;
+    const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'http';
+    const host = (req.headers['x-forwarded-host'] as string) || req.headers.host || 'localhost:3000';
+    return `${protocol}://${host}`;
+  }
+
   // SEO: robots.txt
-  app.get('/robots.txt', (_req: Request, res: Response) => {
+  app.get('/robots.txt', (req: Request, res: Response) => {
     res.type('text/plain');
-    const baseUrl = process.env.APP_URL || 'https://factinfolive.org';
+    const baseUrl = getBaseUrl(req);
     res.send(`User-agent: *
 Allow: /
 Disallow: /admin
@@ -141,9 +166,9 @@ Sitemap: ${baseUrl}/sitemap.xml
   });
 
   // SEO: sitemap.xml
-  app.get('/sitemap.xml', async (_req: Request, res: Response) => {
+  app.get('/sitemap.xml', async (req: Request, res: Response) => {
     res.type('application/xml');
-    const baseUrl = process.env.APP_URL || 'https://factinfolive.org';
+    const baseUrl = getBaseUrl(req);
     const categories = [
       '',
       'latest-news',
@@ -212,6 +237,7 @@ ${publishedArticles
   app.get('/api/sources/status', (_req: Request, res: Response) => {
     res.json({
       providers: statusService.getProvidersStatus(),
+      summary: statusService.getSummary(),
       lastChecked: new Date().toISOString(),
     });
   });
@@ -260,32 +286,119 @@ ${publishedArticles
     }
   });
 
-  // Sports routes
-  app.get('/api/sports', async (_req: Request, res: Response) => {
+  // FactTrail Routes (Continuously tracked news storylines with chronological timelines)
+  app.get('/api/facttrail', async (req: Request, res: Response) => {
     try {
-      const live = await sportsService.getLiveScoreboard();
-      const upcoming = await sportsService.getUpcomingFixtures();
-      const results = await sportsService.getRecentResults();
-      const standings = await sportsService.getStandings();
+      const category = (req.query.category as string) || undefined;
+      const search = (req.query.search as string) || (req.query.q as string) || undefined;
+      const publisher = (req.query.publisher as string) || undefined;
+
+      const trails = await factTrailService.getAllTrails(category, search, publisher);
+      res.json({
+        total: trails.length,
+        trails,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve FactTrails', details: err.message });
+    }
+  });
+
+  app.get('/api/facttrail/:id', async (req: Request, res: Response) => {
+    try {
+      const trail = await factTrailService.getTrailById(req.params.id);
+      if (!trail) {
+        return res.status(404).json({ error: 'FactTrail story not found' });
+      }
+      res.json(trail);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve FactTrail detail', details: err.message });
+    }
+  });
+
+  app.post('/api/facttrail/check-updates', async (req: Request, res: Response) => {
+    try {
+      const { followed } = req.body;
+      const updates = await factTrailService.checkUpdates(Array.isArray(followed) ? followed : []);
+      res.json({ updates });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to check FactTrail updates', details: err.message });
+    }
+  });
+
+  app.get('/api/facttrail/article/:articleId', async (req: Request, res: Response) => {
+    try {
+      const match = await factTrailService.findTrailForArticle(req.params.articleId);
+      res.json({ match });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to query FactTrail for article', details: err.message });
+    }
+  });
+
+  // Sports routes
+  app.get('/api/sports', async (req: Request, res: Response) => {
+    try {
+      const sport = (req.query.sport as SportType) || undefined;
+      const competition = (req.query.competition as string) || undefined;
+
+      const [allFixtures, live, today, upcoming, results, standings, competitions, providerInfo] = await Promise.all([
+        sportsService.getFixtures({ sport, competition }),
+        sportsService.getLiveScoreboard(sport),
+        sportsService.getTodayMatches(sport),
+        sportsService.getUpcomingFixtures(sport),
+        sportsService.getRecentResults(sport),
+        sportsService.getStandings(competition, sport),
+        sportsService.getCompetitions(sport),
+        sportsService.getProviderStatus(),
+      ]);
 
       res.json({
         liveCount: live.length,
+        todayCount: today.length,
+        upcomingCount: upcoming.length,
+        resultsCount: results.length,
         live,
-        upcoming: upcoming.slice(0, 8),
-        results: results.slice(0, 8),
-        topStandings: standings.slice(0, 8),
+        today,
+        upcoming,
+        results,
+        allFixtures,
+        topStandings: standings,
+        competitions,
+        providerInfo,
       });
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to retrieve sports data', details: err.message });
     }
   });
 
-  app.get('/api/sports/live', async (_req: Request, res: Response) => {
+  app.get('/api/sports/all', async (req: Request, res: Response) => {
     try {
-      const items = await sportsService.getLiveScoreboard();
+      const sport = (req.query.sport as SportType) || undefined;
+      const status = (req.query.status as any) || undefined;
+      const competition = (req.query.competition as string) || undefined;
+      const items = await sportsService.getFixtures({ sport, status, competition });
+      res.json(items);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve all sports fixtures', details: err.message });
+    }
+  });
+
+  app.get('/api/sports/live', async (req: Request, res: Response) => {
+    try {
+      const sport = (req.query.sport as SportType) || undefined;
+      const items = await sportsService.getLiveScoreboard(sport);
       res.json(items);
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to retrieve live scores', details: err.message });
+    }
+  });
+
+  app.get('/api/sports/today', async (req: Request, res: Response) => {
+    try {
+      const sport = (req.query.sport as SportType) || undefined;
+      const items = await sportsService.getTodayMatches(sport);
+      res.json(items);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve today’s matches', details: err.message });
     }
   });
 
@@ -320,6 +433,25 @@ ${publishedArticles
     }
   });
 
+  app.get('/api/sports/competitions', async (req: Request, res: Response) => {
+    try {
+      const sport = (req.query.sport as SportType) || undefined;
+      const items = await sportsService.getCompetitions(sport);
+      res.json(items);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve competitions', details: err.message });
+    }
+  });
+
+  app.get('/api/sports/provider-status', async (_req: Request, res: Response) => {
+    try {
+      const status = await sportsService.getProviderStatus();
+      res.json(status);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve sports provider status', details: err.message });
+    }
+  });
+
   // Global search
   app.get('/api/search', async (req: Request, res: Response) => {
     try {
@@ -349,8 +481,17 @@ ${publishedArticles
     }
   });
 
-  // Ask FactInfoLive AI Assistant
-  app.post('/api/assistant/ask', async (req: Request, res: Response) => {
+  app.get('/api/sports/match/:id', async (req: Request, res: Response) => {
+    try {
+      const details = await sportsService.getMatchDetails(req.params.id);
+      res.json(details);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve match details', details: err.message });
+    }
+  });
+
+  // Ask FactInfoLive AI Assistant (Protected with server-side rate-limiting)
+  app.post('/api/assistant/ask', aiRateLimiter, async (req: Request, res: Response) => {
     try {
       const { query, categoryFilter, language } = req.body;
       if (!query || typeof query !== 'string') {
@@ -369,14 +510,64 @@ ${publishedArticles
     }
   });
 
+  // News translation endpoint (Translates news headlines & summaries with multi-tier caching)
+  app.post('/api/news/translate', translationRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { items, targetLanguage } = req.body;
+      if (!Array.isArray(items) || !targetLanguage || targetLanguage === 'en') {
+        return res.json({ items: items || [], targetLanguage: targetLanguage || 'en' });
+      }
+
+      const translatedItems = await Promise.all(
+        items.slice(0, 30).map(async (item: any) => {
+          if (!item.title) return item;
+          const tr = await aiService.translateNewsItem(item.title, item.summary || '', targetLanguage);
+          return {
+            ...item,
+            translatedTitle: tr.translated ? tr.title : undefined,
+            translatedSummary: tr.translated ? tr.summary : undefined,
+            isTranslated: tr.translated,
+            translationLanguage: tr.translated ? targetLanguage : undefined,
+          };
+        })
+      );
+
+      res.json({ items: translatedItems, targetLanguage });
+    } catch (err: any) {
+      res.status(500).json({ error: 'News translation error', details: err?.message });
+    }
+  });
+
+  // Single article full translation (Headline, summary, and article body content)
+  app.post('/api/news/translate-article', translationRateLimiter, async (req: Request, res: Response) => {
+    try {
+      const { id, title, summary, content, targetLanguage } = req.body;
+      if (!title || !targetLanguage || targetLanguage === 'en') {
+        return res.json({ id, title, summary, content, translated: false, targetLanguage: 'en' });
+      }
+
+      const tr = await aiService.translateArticle(title, summary || '', content, targetLanguage);
+      res.json({
+        id,
+        translatedTitle: tr.translated ? tr.title : title,
+        translatedSummary: tr.translated ? tr.summary : summary,
+        translatedContent: tr.translated ? tr.content : content,
+        isTranslated: tr.translated,
+        translationLanguage: tr.translated ? targetLanguage : undefined,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Article translation error', details: err?.message });
+    }
+  });
+
   // ==========================================
   // EDITORIAL, BLOGS & EXPLAINERS MODULE
   // ==========================================
 
   // RSS Feed for Published Articles
-  app.get(['/rss.xml', '/feed.xml'], (_req: Request, res: Response) => {
+  app.get(['/rss.xml', '/feed.xml'], (req: Request, res: Response) => {
     res.type('application/xml');
-    const baseUrl = process.env.APP_URL || 'https://factinfolive.org';
+    const baseUrl = getBaseUrl(req);
     const { items } = editorialStore.getArticles({ status: 'published', limit: 25 });
 
     const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -728,7 +919,7 @@ ${publishedArticles
 
 
   // Multilingual translation helper (en, it, fr, es, de, ur, ar)
-  app.post('/api/editorial/translate', async (req: Request, res: Response) => {
+  app.post('/api/editorial/translate', aiRateLimiter, async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     const user = editorialStore.verifySession(authHeader);
     if (!user) {
@@ -749,7 +940,7 @@ ${publishedArticles
   });
 
   // Claims and citations auditor
-  app.post('/api/editorial/audit-claims', async (req: Request, res: Response) => {
+  app.post('/api/editorial/audit-claims', aiRateLimiter, async (req: Request, res: Response) => {
     const authHeader = req.headers.authorization;
     const user = editorialStore.verifySession(authHeader);
     if (!user) {
@@ -768,15 +959,15 @@ ${publishedArticles
     }
   });
 
-  // Generate 10-point structured summary for any news story
-  app.post('/api/editorial/summarize-story', async (req: Request, res: Response) => {
+  // Generate 10-point structured summary for any news story (with language translation support)
+  app.post('/api/editorial/summarize-story', aiRateLimiter, async (req: Request, res: Response) => {
     try {
-      const { story } = req.body;
+      const { story, language } = req.body;
       if (!story || !story.title) {
         return res.status(400).json({ error: 'Valid story object required' });
       }
 
-      const summary = await editorialAiService.generateStorySummary(story);
+      const summary = await editorialAiService.generateStorySummary(story, language || 'en');
       res.json(summary);
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to generate structured summary', details: err.message });
@@ -1137,10 +1328,24 @@ ${publishedArticles
     res.json(editorialStore.getAnalyticsSummary());
   });
 
+  // Return clean JSON 404 for unmatched API routes to prevent SPA HTML interception
+  app.all(['/api', '/api/*'], (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'API endpoint not found' });
+  });
+
+  // Global API error handler ensuring JSON responses on unexpected exceptions
+  app.use('/api', (err: any, _req: Request, res: Response, _next: any) => {
+    console.error('API Error handler:', err);
+    res.status(500).json({ error: 'Internal API error', details: err?.message || 'Unknown error' });
+  });
+
   // Vite middleware in dev or static files in prod
   if (!isProd) {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR === 'true' ? false : undefined,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

@@ -1,6 +1,9 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { newsService } from './newsService.ts';
 import { editorialStore, EDITORIAL_AUTHORS } from './editorialStore.ts';
+import { withTimeout, checkAndIncrementAiQuota, aiService } from './aiService.ts';
+import { memoryCache } from './cache.ts';
+import crypto from 'crypto';
 import {
   NewsItem,
   StructuredSummary,
@@ -29,22 +32,46 @@ export class EditorialAiService {
     return this.client;
   }
 
-  // 1. Generate 10-point structured summary for any supported news story
-  async generateStorySummary(story: NewsItem): Promise<StructuredSummary> {
+  // 1. Generate 10-point structured summary for any supported news story with language support
+  async generateStorySummary(story: NewsItem, language: string = 'en'): Promise<StructuredSummary> {
+    const targetLang = language || 'en';
+    const cacheKey = `summary_${story.id}_${targetLang}`;
+    const cached = memoryCache.get<StructuredSummary>(cacheKey);
+    if (cached) return cached;
+
     const ai = this.getClient();
 
     if (!ai) {
-      return {
-        headline: story.title,
-        quickSummary30s: story.summary,
+      // Fallback: Translate core fields if targetLang !== 'en'
+      let headline = story.title;
+      let quickSummary = story.summary;
+      let whatHappened = story.summary;
+
+      if (targetLang !== 'en') {
+        try {
+          const [trHeadline, trSummary] = await Promise.all([
+            aiService.translateText(story.title, targetLang),
+            aiService.translateText(story.summary, targetLang),
+          ]);
+          headline = trHeadline;
+          quickSummary = trSummary;
+          whatHappened = trSummary;
+        } catch {
+          // Keep original
+        }
+      }
+
+      const fallbackResult: StructuredSummary = {
+        headline,
+        quickSummary30s: quickSummary,
         keyTakeaways: [
           `Reported by ${story.publisher} under ${story.category.toUpperCase()} wire syndication.`,
           `Factual dispatch timestamp: ${new Date(story.publishedAt).toLocaleDateString()}.`,
           `Classification: ${story.factCheckStatus?.toUpperCase() || 'VERIFIED SOURCED'}.`,
           `Direct original reporting link preserved: ${story.url}`,
-          story.summary.slice(0, 120) + '...',
+          quickSummary.slice(0, 120) + '...',
         ],
-        whatHappened: story.summary,
+        whatHappened,
         whyItMatters: `This event directly impacts international developments in ${story.category} and requires independent monitoring.`,
         confirmedVsUncertain: {
           confirmed: [
@@ -80,12 +107,20 @@ export class EditorialAiService {
           updatedAt: story.retrievedAt,
         },
       };
+
+      memoryCache.set(cacheKey, fallbackResult, 86400);
+      return fallbackResult;
     }
 
     try {
+      const langInstruction = targetLang !== 'en'
+        ? `IMPORTANT: Write all summary output in ${targetLang.toUpperCase()} language. Preserve proper nouns and numbers.`
+        : '';
+
       const prompt = `You are a senior investigative editor for FactInfoLive.
 Analyze this retrieved news dispatch and generate an authentic, structured 10-point intelligence summary.
 DO NOT fabricate quotes, figures, or unverified claims.
+${langInstruction}
 
 Story Title: "${story.title}"
 Publisher: "${story.publisher}"
@@ -95,6 +130,7 @@ Summary / Content: "${story.summary} ${story.content || ''}"
 
 Return a valid JSON object matching this schema:
 {
+  "headline": "Accurately translated or original headline",
   "quickSummary30s": "Concise 30-second factual summary (2-3 sentences)",
   "keyTakeaways": ["Takeaway 1", "Takeaway 2", "Takeaway 3", "Takeaway 4", "Takeaway 5"],
   "whatHappened": "Detailed factual account of the actual event",
@@ -106,19 +142,31 @@ Return a valid JSON object matching this schema:
   "background": "Historical context leading up to this event"
 }`;
 
-      const res = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-        },
-      });
+      const quota = checkAndIncrementAiQuota();
+      if (!quota.allowed) {
+        throw new Error('Daily AI quota reached');
+      }
+
+      const res = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.1,
+            thinkingConfig: {
+              thinkingLevel: ThinkingLevel.LOW,
+            },
+          },
+        }),
+        8000,
+        'Structured summary request timed out after 8 seconds'
+      );
 
       const parsed = JSON.parse(res.text || '{}');
 
-      return {
-        headline: story.title,
+      const result: StructuredSummary = {
+        headline: parsed.headline || story.title,
         quickSummary30s: parsed.quickSummary30s || story.summary,
         keyTakeaways: parsed.keyTakeaways || [story.summary],
         whatHappened: parsed.whatHappened || story.summary,
@@ -146,12 +194,27 @@ Return a valid JSON object matching this schema:
           updatedAt: new Date().toISOString(),
         },
       };
+
+      memoryCache.set(cacheKey, result, 86400);
+      return result;
     } catch {
+      let headline = story.title;
+      let quickSummary = story.summary;
+
+      if (targetLang !== 'en') {
+        try {
+          headline = await aiService.translateText(story.title, targetLang);
+          quickSummary = await aiService.translateText(story.summary, targetLang);
+        } catch {
+          // fallback
+        }
+      }
+
       return {
-        headline: story.title,
-        quickSummary30s: story.summary,
-        keyTakeaways: [story.summary],
-        whatHappened: story.summary,
+        headline,
+        quickSummary30s: quickSummary,
+        keyTakeaways: [quickSummary],
+        whatHappened: quickSummary,
         whyItMatters: 'Relevant to current world affairs.',
         confirmedVsUncertain: {
           confirmed: [`Reported by ${story.publisher}`],
@@ -166,8 +229,9 @@ Return a valid JSON object matching this schema:
           publisher: story.publisher,
           url: story.url,
           publishedAt: story.publishedAt,
+          updatedAt: story.retrievedAt,
         },
-        relatedCoverage: [],
+        relatedCoverage: [{ publisher: story.publisher, url: story.url, title: story.title }],
         timestamps: {
           publishedAt: story.publishedAt,
           updatedAt: new Date().toISOString(),
@@ -332,15 +396,32 @@ Return a valid JSON object matching this schema:
     };
   }
 
-  // 3. Multilingual Translation Assistant (English, Italian, French, Spanish, German, Urdu, Arabic)
   async translateContent(
     text: string,
     targetLanguage: string
   ): Promise<{ translatedText: string; language: string }> {
+    if (!text || !targetLanguage || targetLanguage === 'en') {
+      return { translatedText: text, language: targetLanguage || 'en' };
+    }
+
+    const cacheKey = `tr_ed_${targetLanguage}_${crypto.createHash('sha256').update(text).digest('hex')}`;
+    const cached = memoryCache.get<string>(cacheKey);
+    if (cached) {
+      return { translatedText: cached, language: targetLanguage };
+    }
+
     const ai = this.getClient();
     if (!ai) {
       return {
-        translatedText: `[Translation to ${targetLanguage} unavailable: Gemini API key required]\n\n${text}`,
+        translatedText: text,
+        language: targetLanguage,
+      };
+    }
+
+    const quota = checkAndIncrementAiQuota();
+    if (!quota.allowed) {
+      return {
+        translatedText: text,
         language: targetLanguage,
       };
     }
@@ -352,19 +433,28 @@ Preserve markdown headings, formatting, and factual terminology. Ensure RTL form
 
 Text to translate:
 """
-${text}
+${text.slice(0, 4000)}
 """`;
 
-      const res = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          temperature: 0.1,
-        },
-      });
+      const res = await withTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.1,
+            thinkingConfig: {
+              thinkingLevel: ThinkingLevel.LOW,
+            },
+          },
+        }),
+        8000,
+        'Editorial translation timed out'
+      );
 
+      const translated = res.text || text;
+      memoryCache.set(cacheKey, translated, 86400); // 24 hour cache
       return {
-        translatedText: res.text || text,
+        translatedText: translated,
         language: targetLanguage,
       };
     } catch {

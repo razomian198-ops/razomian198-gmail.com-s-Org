@@ -33,6 +33,7 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
     { id: 'science', label: 'Science & Space' },
     { id: 'health', label: 'Health' },
     { id: 'environment', label: 'Climate' },
+    { id: 'sports', label: 'Sports Wire' },
     { id: 'fact-checks', label: 'Fact Checks' },
   ];
 
@@ -127,7 +128,7 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
                   {/* Text Content */}
                   <div className="p-5">
                     {/* Unboxed Metadata Line */}
-                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2.5">
+                    <div className="flex items-center flex-wrap gap-2 text-xs text-slate-500 dark:text-slate-400 mb-2.5">
                       <span className="font-medium text-slate-700 dark:text-slate-300">{item.publisher}</span>
                       <span aria-hidden="true">·</span>
                       <span className="font-tabular">
@@ -136,15 +137,15 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
                           day: 'numeric',
                         })}
                       </span>
-                      {item.factCheckStatus === 'verified' && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="text-emerald-700 dark:text-emerald-400 font-medium inline-flex items-center gap-0.5">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>Verified</span>
-                          </span>
-                        </>
-                      )}
+                      {item.isTranslated && item.translationLanguage === currentLanguage ? (
+                        <span className="text-[10px] bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 font-semibold px-1.5 py-0.5 rounded">
+                          {currentLanguage.toUpperCase()}
+                        </span>
+                      ) : currentLanguage !== 'en' ? (
+                        <span className="text-[10px] text-slate-400">
+                          (EN)
+                        </span>
+                      ) : null}
                     </div>
 
                     {/* Headline */}
@@ -152,12 +153,16 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
                       onClick={() => onOpenArticle(item)}
                       className="text-base sm:text-lg font-bold font-editorial text-slate-950 dark:text-white leading-snug hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer transition-colors mb-2.5 line-clamp-3"
                     >
-                      {item.title}
+                      {item.isTranslated && item.translationLanguage === currentLanguage && item.translatedTitle
+                        ? item.translatedTitle
+                        : item.title}
                     </h3>
 
                     {/* Summary */}
                     <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-sans leading-relaxed line-clamp-3 mb-4">
-                      {item.summary}
+                      {item.isTranslated && item.translationLanguage === currentLanguage && item.translatedSummary
+                        ? item.translatedSummary
+                        : item.summary}
                     </p>
                   </div>
                 </div>

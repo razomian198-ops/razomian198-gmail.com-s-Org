@@ -50,7 +50,7 @@ export const StructuredSummaryModal: React.FC<StructuredSummaryModalProps> = ({
     fetch('/api/editorial/summarize-story', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ story }),
+      body: JSON.stringify({ story, language: currentLanguage }),
     })
       .then((res) => res.json())
       .then((data: StructuredSummary) => {
@@ -60,7 +60,7 @@ export const StructuredSummaryModal: React.FC<StructuredSummaryModalProps> = ({
       .catch(() => {
         setLoading(false);
       });
-  }, [story]);
+  }, [story?.id, currentLanguage]);
 
   if (!story) return null;
 

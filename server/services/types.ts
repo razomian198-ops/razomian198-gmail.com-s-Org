@@ -19,6 +19,75 @@ export interface NewsItem {
   factCheckStatus?: 'verified' | 'developing' | 'official_statement' | 'analysis' | 'opinion';
   verificationDetails?: string;
   sourceType: 'wire' | 'press_release' | 'academic' | 'broadcast' | 'institutional';
+  translatedTitle?: string;
+  translatedSummary?: string;
+  translatedContent?: string;
+  isTranslated?: boolean;
+  translationLanguage?: string;
+}
+
+export interface FactTrailUpdate {
+  id: string;
+  articleId: string;
+  title: string;
+  summary: string;
+  publisher: string;
+  author?: string;
+  publishedAt: string;
+  url: string;
+  category: string;
+  sourceType: 'wire' | 'broadcast' | 'press_release' | 'institutional' | 'academic';
+  isOfficialStatement: boolean;
+  isLatest: boolean;
+  imageUrl?: string;
+  imageAttribution?: string;
+}
+
+export interface FactTrailSource {
+  publisher: string;
+  articlesCount: number;
+  latestReportAt: string;
+  sourceType: string;
+  urls: string[];
+}
+
+export interface FactTrail {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  overview: string;
+  firstReportedAt: string;
+  latestUpdateAt: string;
+  articlesCount: number;
+  publishersCount: number;
+  publishers: string[];
+  sources: FactTrailSource[];
+  timeline: FactTrailUpdate[];
+  latestUpdateSummary: string;
+  whatChanged: string;
+  officialStatements: FactTrailUpdate[];
+  unconfirmedOrDeveloping: string[];
+  imageUrl?: string;
+  imageAttribution?: string;
+}
+
+export interface FactTrailSummary {
+  id: string;
+  slug: string;
+  title: string;
+  category: string;
+  overview: string;
+  firstReportedAt: string;
+  latestUpdateAt: string;
+  articlesCount: number;
+  publishersCount: number;
+  publishers: string[];
+  latestPublisher: string;
+  latestHeadline: string;
+  whatChangedPreview: string;
+  imageUrl?: string;
+  hasOfficialStatement: boolean;
 }
 
 export type SportType =
@@ -60,15 +129,41 @@ export interface SportsFixture {
     logo?: string;
     badge?: string;
   };
-  status: 'live' | 'upcoming' | 'completed' | 'postponed' | 'delayed';
+  status: 'live' | 'upcoming' | 'completed' | 'postponed' | 'delayed' | 'cancelled' | 'paused';
+  statusDisplay?: string;
   minute?: string;
   period?: string;
   startTime: string;
   venue?: string;
   provider: string;
   lastUpdated: string;
+  isToday?: boolean;
+  summaryUrl?: string;
   stats?: Record<string, string | number>;
   officialSourceUrl?: string;
+  keyEvents?: MatchEvent[];
+  commentary?: MatchCommentaryItem[];
+}
+
+export interface MatchEvent {
+  id: string;
+  type: string;
+  detail?: string;
+  text: string;
+  shortText?: string;
+  clock?: string;
+  period?: string;
+  scoringPlay?: boolean;
+  wallclock?: string;
+  teamName?: string;
+  player?: string;
+  assist?: string;
+}
+
+export interface MatchCommentaryItem {
+  sequence: number;
+  time?: string;
+  text: string;
 }
 
 export interface SportsStanding {
@@ -94,6 +189,8 @@ export interface ProviderStatus {
   type: 'api' | 'rss' | 'llm';
   status: 'active' | 'degraded' | 'key_missing' | 'rate_limited' | 'offline';
   lastPing: string;
+  lastSuccess?: string;
+  lastError?: string;
   latencyMs: number;
   cachedRecordsCount: number;
   details: string;
