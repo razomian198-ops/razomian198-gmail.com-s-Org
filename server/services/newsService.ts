@@ -199,6 +199,8 @@ export function cleanHtml(html?: string): string {
   if (!html) return '';
   return html
     .replace(/<[^>]*>?/gm, '')
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')

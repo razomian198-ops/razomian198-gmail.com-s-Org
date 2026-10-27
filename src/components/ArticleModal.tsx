@@ -11,7 +11,8 @@ import {
   Check,
   Bookmark,
   GitFork,
-  ChevronRight
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { NewsItem } from '../../server/services/types.ts';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
@@ -21,6 +22,7 @@ interface ArticleModalProps {
   article: NewsItem | null;
   onClose: () => void;
   onOpenFactTrail?: (trailId: string) => void;
+  onCompareCoverage?: (article: NewsItem) => void;
 }
 
 export const ArticleModal: React.FC<ArticleModalProps> = ({
@@ -28,6 +30,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   article,
   onClose,
   onOpenFactTrail,
+  onCompareCoverage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
   const [copied, setCopied] = useState(false);
@@ -371,15 +374,31 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
             Source: <strong className="text-slate-700 dark:text-slate-300">{article.publisher}</strong>
           </span>
 
-          <a
-            href={article.url}
-            target="_blank"
-            rel="noreferrer"
-            className="px-4 py-2 bg-slate-900 dark:bg-stone-100 text-white dark:text-slate-900 text-xs font-semibold rounded-lg hover:bg-slate-800 dark:hover:bg-white transition-colors flex items-center gap-1.5 shadow-sm"
-          >
-            <span>{t.viewOriginal}</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <div className="flex items-center gap-2">
+            {onCompareCoverage && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onCompareCoverage(article);
+                }}
+                className="px-3.5 py-2 bg-stone-100 hover:bg-stone-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Compare coverage across publishers"
+              >
+                <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Compare Coverage</span>
+              </button>
+            )}
+
+            <a
+              href={article.url}
+              target="_blank"
+              rel="noreferrer"
+              className="px-4 py-2 bg-slate-900 dark:bg-stone-100 text-white dark:text-slate-900 text-xs font-semibold rounded-lg hover:bg-slate-800 dark:hover:bg-white transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <span>{t.viewOriginal}</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

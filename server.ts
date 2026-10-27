@@ -11,6 +11,7 @@ import { SportType } from './server/services/types.ts';
 import { editorialStore } from './server/services/editorialStore.ts';
 import { editorialAiService } from './server/services/editorialAiService.ts';
 import { factTrailService } from './server/services/factTrailService.ts';
+import { compareCoverageService } from './server/services/compareCoverageService.ts';
 
 import crypto from 'crypto';
 
@@ -271,6 +272,45 @@ ${publishedArticles
       res.json(items);
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to retrieve breaking news', details: err.message });
+    }
+  });
+
+  // Compare Coverage Routes: One story. Different sources. Original reporting.
+  app.get('/api/news/compare-featured', async (req: Request, res: Response) => {
+    try {
+      const limit = parseInt((req.query.limit as string) || '6', 10);
+      const comparisons = await compareCoverageService.getFeaturedComparisons(limit);
+      res.json({ total: comparisons.length, comparisons });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve featured coverage comparisons', details: err.message });
+    }
+  });
+
+  app.get('/api/news/compare', async (req: Request, res: Response) => {
+    try {
+      const articleId = (req.query.id as string) || '';
+      if (!articleId) {
+        return res.status(400).json({ error: 'Missing article ID parameter (?id=...)' });
+      }
+      const comparison = await compareCoverageService.getCoverageForArticle(articleId);
+      if (!comparison) {
+        return res.status(404).json({ error: 'No coverage data available for article' });
+      }
+      res.json(comparison);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to compare coverage', details: err.message });
+    }
+  });
+
+  app.get('/api/news/:id/compare', async (req: Request, res: Response) => {
+    try {
+      const comparison = await compareCoverageService.getCoverageForArticle(req.params.id);
+      if (!comparison) {
+        return res.status(404).json({ error: 'No coverage data available for article' });
+      }
+      res.json(comparison);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to compare coverage', details: err.message });
     }
   });
 

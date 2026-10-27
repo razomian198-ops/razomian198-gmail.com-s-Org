@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, CheckCircle2, ChevronRight, Newspaper, ArrowRight } from 'lucide-react';
+import { ExternalLink, CheckCircle2, ChevronRight, Newspaper, ArrowRight, Layers } from 'lucide-react';
 import { NewsItem } from '../../server/services/types.ts';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
 
@@ -10,6 +10,7 @@ interface NewsGridProps {
   onFilterChange: (cat: string) => void;
   onOpenArticle: (item: NewsItem) => void;
   onOpenSummary?: (item: NewsItem) => void;
+  onCompareCoverage?: (item: NewsItem) => void;
 }
 
 export const NewsGrid: React.FC<NewsGridProps> = ({
@@ -19,6 +20,7 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
   onFilterChange,
   onOpenArticle,
   onOpenSummary,
+  onCompareCoverage,
 }) => {
   const t = TRANSLATIONS[currentLanguage];
   const [displayCount, setDisplayCount] = useState(9);
@@ -64,7 +66,15 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1 max-w-full">
+        <div
+          className="flex items-center gap-1 overflow-x-auto overscroll-x-contain touch-pan-x no-scrollbar py-1 w-full max-w-full min-w-0"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x pan-y',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
           {filterOptions.map((opt) => (
             <button
               key={opt.id}
@@ -185,6 +195,17 @@ export const NewsGrid: React.FC<NewsGridProps> = ({
                         title="View 10-Point 30-Second Summary"
                       >
                         <span>30s Summary</span>
+                      </button>
+                    )}
+
+                    {onCompareCoverage && (
+                      <button
+                        onClick={() => onCompareCoverage(item)}
+                        className="text-stone-600 dark:text-stone-300 hover:text-blue-600 dark:hover:text-blue-400 font-medium cursor-pointer inline-flex items-center gap-1"
+                        title="Compare Coverage across publishers"
+                      >
+                        <Layers className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                        <span>Compare</span>
                       </button>
                     )}
                   </div>

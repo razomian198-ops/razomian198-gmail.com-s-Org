@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, CheckCircle2, AlertCircle, FileText, ArrowLeft, ExternalLink, HelpCircle } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, AlertCircle, FileText, ArrowLeft, ExternalLink, HelpCircle, Layers } from 'lucide-react';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
 
 interface EditorialPolicyViewProps {
@@ -81,16 +81,16 @@ export const EditorialPolicyView: React.FC<EditorialPolicyViewProps> = ({
           </p>
         </div>
 
-        {/* AI Transparency */}
+        {/* Multi-Source Coverage & Original Reporting Integrity */}
         <div className="p-6 rounded-xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-3">
-          <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600 dark:text-purple-400">
-            <HelpCircle className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <Layers className="w-4 h-4" />
           </div>
           <h3 className="text-lg font-bold font-editorial text-slate-900 dark:text-white">
-            4. AI Synthesis & Citation Ethics
+            4. Multi-Source Coverage & Original Reporting Integrity
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-sans">
-            Our &ldquo;Ask FactInfoLive AI&rdquo; assistant utilizes Google Gemini 3.8 Flash running in a secure server-side runtime. The AI is strictly grounded in retrieved evidence records and must explicitly cite working links. If competing political or economic perspectives exist, the AI must outline both viewpoints neutrally and acknowledge uncertainties.
+            Our &ldquo;Compare Coverage&rdquo; feature aligns dispatches across accredited publishers and global wire services without synthetic alterations or editorial spin. We display primary headlines, publication timestamps, and unedited descriptions side-by-side with direct outbound links to each publisher&apos;s original journalism. When a story is carried by only a single source, we explicitly disclose that secondary corroboration is pending.
           </p>
         </div>
       </div>

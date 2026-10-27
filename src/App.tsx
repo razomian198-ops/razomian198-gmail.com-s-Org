@@ -3,7 +3,8 @@ import { Header } from './components/Header.tsx';
 import { LeadStory } from './components/LeadStory.tsx';
 import { LiveSportsCenter } from './components/LiveSportsCenter.tsx';
 import { NewsGrid } from './components/NewsGrid.tsx';
-import { AskAiPanel } from './components/AskAiPanel.tsx';
+import { CompareCoveragePanel } from './components/CompareCoveragePanel.tsx';
+import { CompareCoverageModal } from './components/CompareCoverageModal.tsx';
 import { ArticleModal } from './components/ArticleModal.tsx';
 import { SearchModal } from './components/SearchModal.tsx';
 import { ProviderStatusModal } from './components/ProviderStatusModal.tsx';
@@ -55,6 +56,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
   const [selectedArticle, setSelectedArticle] = useState<NewsItem | null>(null);
+  const [selectedCompareStory, setSelectedCompareStory] = useState<NewsItem | null>(null);
 
   // Dedicated Route: /admin Full Dashboard State
   const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() => {
@@ -310,7 +312,7 @@ export default function App() {
   // If user navigated to /admin, render the full Admin Dashboard
   if (isAdminRoute) {
     return (
-      <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200">
+      <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200 w-full max-w-full min-w-0">
         <AdminDashboard
           currentLanguage={currentLanguage}
           onBackToHome={() => {
@@ -337,7 +339,7 @@ export default function App() {
     (breakingNews.length > 0 ? breakingNews[0] : null);
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200 w-full max-w-full min-w-0">
       {/* Primary Masthead & Navigation */}
       <Header
         currentLanguage={currentLanguage}
@@ -470,6 +472,7 @@ export default function App() {
               onRetry={loadInitialData}
               onOpenArticle={(story) => setSelectedArticle(story)}
               onOpenSummary={(story) => setSelectedSummaryStory(story)}
+              onCompareCoverage={(story) => setSelectedCompareStory(story)}
               currentLanguage={currentLanguage}
             />
 
@@ -492,8 +495,15 @@ export default function App() {
             {/* In-Article Contextual Ad Banner */}
             <AdBanner slot="inArticle" />
 
-            {/* C. Ask FactInfoLive AI Assistant */}
-            <AskAiPanel currentLanguage={currentLanguage} />
+            {/* C. Compare Coverage — One story. Different sources. Original reporting. */}
+            <CompareCoveragePanel
+              currentLanguage={currentLanguage}
+              onOpenFactTrail={handleOpenTrail}
+              onOpenArticleDetail={(artId) => {
+                const found = news.find((n) => n.id === artId);
+                if (found) setSelectedArticle(found);
+              }}
+            />
 
             {/* D. Latest World News Feed Grid */}
             <NewsGrid
@@ -503,6 +513,7 @@ export default function App() {
               onFilterChange={setActiveCategoryFilter}
               onOpenArticle={(item) => setSelectedArticle(item)}
               onOpenSummary={(item) => setSelectedSummaryStory(item)}
+              onCompareCoverage={(item) => setSelectedCompareStory(item)}
             />
 
             {/* E. Departmental Focus: Science & Space Highlights */}
@@ -592,6 +603,14 @@ export default function App() {
         currentLanguage={currentLanguage}
         article={selectedArticle}
         onClose={() => setSelectedArticle(null)}
+        onOpenFactTrail={handleOpenTrail}
+        onCompareCoverage={(story) => setSelectedCompareStory(story)}
+      />
+
+      <CompareCoverageModal
+        currentLanguage={currentLanguage}
+        article={selectedCompareStory}
+        onClose={() => setSelectedCompareStory(null)}
         onOpenFactTrail={handleOpenTrail}
       />
 

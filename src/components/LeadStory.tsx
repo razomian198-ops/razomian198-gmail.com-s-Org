@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, Radio, CheckCircle2, ChevronRight, Image as ImageIcon, Languages } from 'lucide-react';
+import { ExternalLink, Radio, CheckCircle2, ChevronRight, Image as ImageIcon, Languages, Layers } from 'lucide-react';
 import { NewsItem } from '../../server/services/types.ts';
 import { SupportedLanguage } from '../i18n/translations.ts';
 
@@ -9,6 +9,7 @@ interface LeadStoryProps {
   onRetry?: () => void;
   onOpenArticle: (story: NewsItem) => void;
   onOpenSummary?: (story: NewsItem) => void;
+  onCompareCoverage?: (story: NewsItem) => void;
   leadImageOverride?: string;
   currentLanguage?: SupportedLanguage;
 }
@@ -19,6 +20,7 @@ export const LeadStory: React.FC<LeadStoryProps> = ({
   onRetry,
   onOpenArticle,
   onOpenSummary,
+  onCompareCoverage,
   leadImageOverride,
   currentLanguage = 'en'
 }) => {
@@ -193,6 +195,17 @@ export const LeadStory: React.FC<LeadStoryProps> = ({
                   className="px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <span>30s Summary</span>
+                </button>
+              )}
+
+              {onCompareCoverage && (
+                <button
+                  onClick={() => onCompareCoverage(story)}
+                  className="px-3 py-1.5 rounded-lg bg-stone-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-stone-200 dark:hover:bg-slate-700 font-semibold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Compare how different publishers report this story"
+                >
+                  <Layers className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Compare Coverage</span>
                 </button>
               )}
             </div>

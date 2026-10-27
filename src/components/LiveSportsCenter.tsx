@@ -310,7 +310,15 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
           </button>
 
           {/* Primary View Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-stone-100 dark:bg-slate-800 rounded-lg overflow-x-auto max-w-full">
+          <div
+            className="flex items-center gap-1 p-1 bg-stone-100 dark:bg-slate-800 rounded-lg overflow-x-auto overscroll-x-contain touch-pan-x no-scrollbar w-full max-w-full min-w-0"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pan-y',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
             <button
               onClick={() => setActiveTab('live')}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
@@ -435,7 +443,15 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
       {/* Filter Toolbar: Sports Pills, Competition Selector & Team Search */}
       <div className="py-3 border-b border-stone-100 dark:border-slate-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Sport Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 md:pb-0">
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto overscroll-x-contain touch-pan-x no-scrollbar pb-1 md:pb-0 w-full max-w-full min-w-0"
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x pan-y',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
+        >
           <span className="text-xs text-slate-500 font-medium shrink-0 mr-1">{t.selectSport}:</span>
           {sportsList.map((sport) => (
             <button

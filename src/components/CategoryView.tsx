@@ -247,7 +247,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
               No Direct Real-Time Dispatches for this Department Currently
             </h3>
             <p className="text-xs sm:text-sm text-slate-500 max-w-lg mx-auto leading-relaxed">
-              In accordance with our anti-fabrication editorial policy, FactInfoLive does not generate synthetic reports when primary feeds are unavailable. Please check the global wire feed or use our Ask FactInfoLive AI assistant for research synthesis.
+              In accordance with our anti-fabrication editorial policy, FactInfoLive does not generate synthetic reports when primary feeds are unavailable. Please check the global wire feed or use our Compare Coverage section to examine multi-source reporting.
             </p>
             <div className="pt-2">
               <button

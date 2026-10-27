@@ -467,3 +467,35 @@ export interface AnalyticsEvent {
   timestamp: string;
 }
 
+// Compare Coverage Interfaces: One story. Different sources. Original reporting.
+export interface SourceReport {
+  id: string;
+  articleId: string;
+  headline: string;
+  publisher: string;
+  publishedAt: string;
+  url: string;
+  summary: string;
+  sourceType: 'wire' | 'broadcast' | 'press_release' | 'institutional' | 'academic' | string;
+  author?: string;
+  imageUrl?: string;
+  isOfficialStatement?: boolean;
+}
+
+export interface CoverageComparison {
+  storyId: string;
+  storyTitle: string;
+  category: string;
+  leadArticleId: string;
+  factTrailId?: string;
+  factTrailSlug?: string;
+  publishersCount: number;
+  publishers: string[];
+  articlesCount: number;
+  sources: SourceReport[];
+  isSingleSource: boolean;
+  firstReportedAt: string;
+  latestReportAt: string;
+  singleSourceNotice?: string;
+}
+

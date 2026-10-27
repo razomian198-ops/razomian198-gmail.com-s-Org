@@ -93,11 +93,11 @@ export const Header: React.FC<HeaderProps> = ({
   const currentBreaking = breakingNews.length > 0 ? breakingNews[tickerIndex % breakingNews.length] : null;
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-stone-200 dark:border-slate-800 transition-colors">
+    <header className="sticky top-0 z-40 w-full max-w-full min-w-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md border-b border-stone-200 dark:border-slate-800 transition-colors">
       {/* 1. Multi-Source Breaking News Ribbon */}
       {currentBreaking && (
-        <div className="bg-slate-900 text-stone-100 text-xs py-1.5 px-4 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-2 overflow-hidden max-w-5xl">
+        <div className="w-full max-w-full bg-slate-900 text-stone-100 text-xs py-1.5 px-4 flex items-center justify-between border-b border-slate-800 overflow-hidden">
+          <div className="flex items-center gap-2 overflow-hidden min-w-0 flex-1 mr-2">
             <span className="font-semibold tracking-wider uppercase text-blue-400 shrink-0 flex items-center gap-1.5">
               <Radio className="w-3.5 h-3.5 text-blue-400 animate-pulse" />
               {t.breakingNews}
@@ -107,10 +107,10 @@ export const Header: React.FC<HeaderProps> = ({
                 {(tickerIndex % breakingNews.length) + 1}/{breakingNews.length}
               </span>
             )}
-            <span className="text-slate-400" aria-hidden="true">·</span>
+            <span className="text-slate-400 shrink-0" aria-hidden="true">·</span>
             <button
               onClick={() => onOpenArticle(currentBreaking)}
-              className="text-stone-200 hover:text-white truncate font-medium text-left cursor-pointer transition-colors"
+              className="text-stone-200 hover:text-white truncate font-medium text-left cursor-pointer transition-colors min-w-0"
             >
               {currentBreaking.isTranslated && currentBreaking.translationLanguage === currentLanguage && currentBreaking.translatedTitle
                 ? currentBreaking.translatedTitle
@@ -147,7 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* 2. Top Bar Contract: 3 Zones ([Brand wordmark] — [Nav links] — [Primary action / controls]) */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4 lg:gap-8 min-w-0">
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-3 shrink-0">
           <button
@@ -158,7 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
               F
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white font-editorial">
+              <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white font-editorial whitespace-nowrap">
                 FactInfo<span className="text-blue-600 dark:text-blue-400">Live</span>
               </span>
             </div>
@@ -166,7 +166,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Zone 2: Concise Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-700 dark:text-slate-200">
+        <nav className="hidden xl:flex items-center gap-5 text-sm font-medium text-slate-700 dark:text-slate-200 min-w-0 shrink">
           <button
             onClick={() => onSelectCategory('facttrail')}
             className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
@@ -224,7 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Zone 3: Search, Admin Studio, Language, Theme, Status */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Search Button */}
           <button
             onClick={onOpenSearch}
@@ -250,7 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Secure Admin Dashboard Route Button */}
           <button
             onClick={onOpenAdminDashboard}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors cursor-pointer"
             title="Secure Admin Dashboard (/admin)"
           >
             <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -322,27 +322,40 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* 3. Secondary Editorial & Topic Strip (Displays the 9 requested editorial sections) */}
-      <div className="border-t border-stone-200 dark:border-slate-800 bg-stone-50/80 dark:bg-slate-950/80 py-1.5 px-4 sm:px-6 lg:px-8 overflow-x-auto scrollbar-none flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-400">
-        {editorialSections.map((sec) => (
-          <button
-            key={sec.id}
-            onClick={() => onSelectCategory(sec.id)}
-            className={`whitespace-nowrap shrink-0 transition-colors py-1 hover:text-slate-900 dark:hover:text-white cursor-pointer ${
-              activeCategory === sec.id
-                ? 'text-blue-600 dark:text-blue-400 font-semibold border-b-2 border-blue-600 dark:border-blue-400'
-                : ''
-            }`}
+      <div className="w-full max-w-full min-w-0 border-t border-stone-200 dark:border-slate-800 bg-stone-50/80 dark:bg-slate-950/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav
+            aria-label="Editorial & Topic Sections"
+            className="w-full max-w-full min-w-0 py-2 flex items-center gap-4 text-xs font-medium text-slate-600 dark:text-slate-400 overflow-x-auto overscroll-x-contain touch-pan-x no-scrollbar"
+            style={{
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-x pan-y',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
           >
-            {sec.label}
-          </button>
-        ))}
-        <span className="text-slate-300 dark:text-slate-700" aria-hidden="true">|</span>
-        <button
-          onClick={() => onSelectCategory('all-topics')}
-          className="whitespace-nowrap shrink-0 py-1 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
-        >
-          + {t.allCategories}
-        </button>
+            {editorialSections.map((sec) => (
+              <button
+                key={sec.id}
+                onClick={() => onSelectCategory(sec.id)}
+                className={`whitespace-nowrap shrink-0 transition-colors py-1 hover:text-slate-900 dark:hover:text-white cursor-pointer ${
+                  activeCategory === sec.id
+                    ? 'text-blue-600 dark:text-blue-400 font-semibold border-b-2 border-blue-600 dark:border-blue-400'
+                    : ''
+                }`}
+              >
+                {sec.label}
+              </button>
+            ))}
+            <span className="text-slate-300 dark:text-slate-700 shrink-0 select-none" aria-hidden="true">|</span>
+            <button
+              onClick={() => onSelectCategory('all-topics')}
+              className="whitespace-nowrap shrink-0 py-1 text-blue-600 dark:text-blue-400 hover:underline cursor-pointer font-medium"
+            >
+              + {t.allCategories}
+            </button>
+          </nav>
+        </div>
       </div>
 
       {/* 4. Mobile Drawer Menu */}
