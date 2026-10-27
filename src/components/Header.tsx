@@ -147,26 +147,27 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* 2. Top Bar Contract: 3 Zones ([Brand wordmark] — [Nav links] — [Primary action / controls]) */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4 lg:gap-8 min-w-0">
+      {/* 2. Top Bar Contract: 3 Zones ([Brand wordmark] — [Nav links] — [Primary action / controls]) */}
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 lg:gap-6 min-w-0">
         {/* Zone 1: Brand Wordmark */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <button
             onClick={() => onSelectCategory('home')}
-            className="flex items-center gap-2.5 text-left group cursor-pointer"
+            className="flex items-center gap-2 sm:gap-2.5 text-left group cursor-pointer"
           >
-            <div className="w-8 h-8 rounded-md bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+            <div className="w-7 h-7 sm:w-8 h-8 rounded-md bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-bold text-base sm:text-lg shadow-sm shrink-0">
               F
             </div>
             <div>
-              <span className="text-xl sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white font-editorial whitespace-nowrap">
+              <span className="text-lg sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white font-editorial whitespace-nowrap">
                 FactInfo<span className="text-blue-600 dark:text-blue-400">Live</span>
               </span>
             </div>
           </button>
         </div>
 
-        {/* Zone 2: Concise Navigation Links */}
-        <nav className="hidden xl:flex items-center gap-5 text-sm font-medium text-slate-700 dark:text-slate-200 min-w-0 shrink">
+        {/* Zone 2: Concise Navigation Links (Desktop) */}
+        <nav className="hidden xl:flex items-center justify-center gap-3.5 2xl:gap-5 text-sm font-medium text-slate-700 dark:text-slate-200 min-w-0 flex-1 px-2 overflow-hidden">
           <button
             onClick={() => onSelectCategory('facttrail')}
             className={`transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
@@ -183,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onSelectCategory('latest-news')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${
+            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
               activeCategory === 'latest-news' ? 'text-blue-600 dark:text-blue-400 font-semibold' : ''
             }`}
           >
@@ -191,15 +192,16 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onSelectCategory('blogs')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${
+            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
               activeCategory === 'blogs' ? 'text-blue-600 dark:text-blue-400 font-semibold' : ''
             }`}
           >
             {t.blogs}
           </button>
+          {/* Progressive disclosure on wide screens (2xl: 1536px+) so standard desktop (1280px-1535px) has ample spacing and zero overlap */}
           <button
             onClick={() => onSelectCategory('deep-explainers')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${
+            className={`hidden 2xl:inline-flex transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
               activeCategory === 'deep-explainers' ? 'text-blue-600 dark:text-blue-400 font-semibold' : ''
             }`}
           >
@@ -207,7 +209,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onSelectCategory('quick-summaries')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${
+            className={`hidden 2xl:inline-flex transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
               activeCategory === 'quick-summaries' ? 'text-blue-600 dark:text-blue-400 font-semibold' : ''
             }`}
           >
@@ -215,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={() => onSelectCategory('fact-checks')}
-            className={`transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 ${
+            className={`hidden 2xl:inline-flex transition-colors whitespace-nowrap shrink-0 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer ${
               activeCategory === 'fact-checks' ? 'text-blue-600 dark:text-blue-400 font-semibold' : ''
             }`}
           >
@@ -224,12 +226,13 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         {/* Zone 3: Search, Admin Studio, Language, Theme, Status */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 relative z-10">
           {/* Search Button */}
           <button
+            type="button"
             onClick={onOpenSearch}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
-            title="Search"
+            className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer shrink-0"
+            title="Search articles, sports, science"
             aria-label="Search articles and sports"
           >
             <Search className="w-4 h-4" />
@@ -238,29 +241,32 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Support / Patronage Button */}
           {onOpenSupporterModal && (
             <button
+              type="button"
               onClick={onOpenSupporterModal}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-md transition-colors cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 rounded-md transition-colors cursor-pointer shrink-0"
               title="Support FactInfoLive (Reader Patronage)"
             >
               <Heart className="w-3.5 h-3.5 fill-rose-500/20" />
-              <span className="hidden sm:inline">Support</span>
+              <span className="hidden md:inline">Support</span>
             </button>
           )}
 
           {/* Secure Admin Dashboard Route Button */}
           <button
+            type="button"
             onClick={onOpenAdminDashboard}
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors cursor-pointer"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors cursor-pointer shrink-0"
             title="Secure Admin Dashboard (/admin)"
           >
             <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden xl:inline">Admin (/admin)</span>
+            <span className="hidden lg:inline">Admin</span>
           </button>
 
           {/* Sources Transparency Indicator */}
           <button
+            type="button"
             onClick={onOpenStatusModal}
-            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-stone-200 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-stone-200 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer shrink-0"
             title={t.providerStatus}
           >
             <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -268,14 +274,15 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Language Selector Dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
+              type="button"
               onClick={() => setIsLangMenuOpen(!isLangMenuOpen)}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
               aria-label="Select Language"
             >
               <Globe className="w-3.5 h-3.5" />
-              <span className="uppercase">{currentLanguage}</span>
+              <span className="uppercase text-[11px] sm:text-xs">{currentLanguage}</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
 
@@ -284,11 +291,12 @@ export const Header: React.FC<HeaderProps> = ({
                 {languages.map((lang) => (
                   <button
                     key={lang.code}
+                    type="button"
                     onClick={() => {
                       onLanguageChange(lang.code);
                       setIsLangMenuOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors ${
+                    className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between hover:bg-stone-100 dark:hover:bg-slate-800 transition-colors cursor-pointer ${
                       currentLanguage === lang.code ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-300'
                     }`}
                   >
@@ -302,18 +310,20 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Theme Toggle Button */}
           <button
+            type="button"
             onClick={onThemeToggle}
-            className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer shrink-0"
             title={t.themeToggle}
             aria-label="Toggle Theme"
           >
             {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
           </button>
 
-          {/* Mobile Menu Toggle */}
+          {/* Mobile Menu Toggle (Visible whenever desktop nav is hidden: xl:hidden) */}
           <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="lg:hidden p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors"
+            className="xl:hidden p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white rounded-md hover:bg-stone-100 dark:hover:bg-slate-900 transition-colors cursor-pointer shrink-0"
             aria-label="Open Navigation Menu"
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -360,7 +370,38 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 4. Mobile Drawer Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-t border-stone-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 space-y-4">
+        <div className="xl:hidden border-t border-stone-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 space-y-4">
+          {/* Quick Search Button in Mobile Drawer */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              onOpenSearch();
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-lg bg-stone-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-medium hover:bg-stone-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <span>{t.searchPlaceholder}</span>
+            </span>
+            <span className="text-[10px] text-slate-400 font-mono">Search</span>
+          </button>
+
+          {/* Support in Mobile Drawer */}
+          {onOpenSupporterModal && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenSupporterModal();
+              }}
+              className="w-full flex items-center gap-2 p-2.5 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+            >
+              <Heart className="w-4 h-4 fill-rose-500/20" />
+              <span>Support FactInfoLive (Reader Patronage)</span>
+            </button>
+          )}
+
           <div>
             <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400 block mb-2">
               Editorial Publications
@@ -369,11 +410,12 @@ export const Header: React.FC<HeaderProps> = ({
               {editorialSections.map((sec) => (
                 <button
                   key={sec.id}
+                  type="button"
                   onClick={() => {
                     onSelectCategory(sec.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`text-left p-2 rounded-md transition-colors ${
+                  className={`text-left p-2 rounded-md transition-colors cursor-pointer ${
                     activeCategory === sec.id
                       ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 font-semibold'
                       : 'text-slate-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-900'
@@ -387,16 +429,24 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div className="pt-2 border-t border-stone-200 dark:border-slate-800 flex justify-between items-center text-xs">
             <button
+              type="button"
               onClick={() => {
-                onOpenAdminModal();
+                onOpenAdminDashboard();
                 setIsMobileMenuOpen(false);
               }}
-              className="flex items-center gap-1.5 text-blue-600 font-semibold"
+              className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5" />
-              <span>Editorial CMS Studio</span>
+              <span>Admin Dashboard (/admin)</span>
             </button>
-            <button onClick={onOpenStatusModal} className="text-slate-500">
+            <button
+              type="button"
+              onClick={() => {
+                onOpenStatusModal();
+                setIsMobileMenuOpen(false);
+              }}
+              className="text-slate-500 dark:text-slate-400 hover:underline cursor-pointer"
+            >
               {t.providerStatus}
             </button>
           </div>
