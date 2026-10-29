@@ -30,7 +30,10 @@ import {
   Tag,
   Share2,
   Download,
-  AlertCircle
+  AlertCircle,
+  Cpu,
+  ShoppingBag,
+  MessageSquare
 } from 'lucide-react';
 import {
   EditorialArticle,
@@ -41,7 +44,10 @@ import {
   SponsorshipInquiry,
   MonetizationSettings,
   NewsletterSubscriber,
-  UserRole
+  UserRole,
+  AiTool,
+  AiToolReview,
+  ProductItem
 } from '../../server/services/types.ts';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
 
@@ -81,8 +87,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'articles' | 'ai-studio' | 'revenue' | 'seo' | 'analytics' | 'team'
+    'overview' | 'articles' | 'ai-studio' | 'ai-tools' | 'revenue' | 'seo' | 'analytics' | 'team'
   >('overview');
+
+  // AI Tools Directory & Reviews State
+  const [adminTools, setAdminTools] = useState<AiTool[]>([]);
+  const [adminSubmissions, setAdminSubmissions] = useState<AiTool[]>([]);
+  const [adminPendingReviews, setAdminPendingReviews] = useState<(AiToolReview & { toolTitle?: string })[]>([]);
+  const [loadingAiTools, setLoadingAiTools] = useState(false);
+  const [aiToolsSubTab, setAiToolsSubTab] = useState<'directory' | 'submissions' | 'reviews'>('directory');
+
+  // New Tool Form State
+  const [newToolName, setNewToolName] = useState('');
+  const [newToolWebsite, setNewToolWebsite] = useState('');
+  const [newToolCategory, setNewToolCategory] = useState<AiTool['category']>('research');
+  const [newToolPricing, setNewToolPricing] = useState<AiTool['pricing']>('freemium');
+  const [newToolPricingDetails, setNewToolPricingDetails] = useState('');
+  const [newToolUseCases, setNewToolUseCases] = useState('');
+  const [newToolRestrictions, setNewToolRestrictions] = useState('');
+  const [newToolRequiresAccount, setNewToolRequiresAccount] = useState(true);
+  const [newToolRequiresApiKey, setNewToolRequiresApiKey] = useState(false);
+
+  // Products / Commerce State
+  const [adminProducts, setAdminProducts] = useState<ProductItem[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductDesc, setNewProductDesc] = useState('');
+  const [newProductPrice, setNewProductPrice] = useState(19.99);
+  const [newProductCategory, setNewProductCategory] = useState<string>('FactInfoLive Guides');
 
 
   // Overview metrics state
@@ -187,8 +219,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       loadArticles();
     } else if (activeTab === 'ai-studio') {
       loadIdeas();
+    } else if (activeTab === 'ai-tools') {
+      loadAdminToolsData();
     } else if (activeTab === 'revenue') {
       loadRevenueData();
+      loadAdminProducts();
     } else if (activeTab === 'seo') {
       loadSeoAudit();
     } else if (activeTab === 'analytics') {
@@ -291,6 +326,199 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .then((res) => res.json())
       .then((data) => setTeamUsers(data || []))
       .catch(() => {});
+  };
+
+  const loadAdminToolsData = () => {
+    if (!token) return;
+    setLoadingAiTools(true);
+    Promise.allSettled([
+      fetch('/api/tools').then((r) => r.json()),
+      fetch('/api/admin/tools/submissions', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+      fetch('/api/admin/reviews/pending', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+    ])
+      .then(([toolsRes, subsRes, revsRes]) => {
+        if (toolsRes.status === 'fulfilled' && Array.isArray(toolsRes.value)) {
+          setAdminTools(toolsRes.value);
+        }
+        if (subsRes.status === 'fulfilled' && Array.isArray(subsRes.value)) {
+          setAdminSubmissions(subsRes.value);
+        }
+        if (revsRes.status === 'fulfilled' && Array.isArray(revsRes.value)) {
+          setAdminPendingReviews(revsRes.value);
+        }
+        setLoadingAiTools(false);
+      })
+      .catch(() => setLoadingAiTools(false));
+  };
+
+  const handleApproveSubmission = async (id: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/admin/tools/submissions/${id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setStatusMessage('Tool submission approved and published to public directory.');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const handleRejectSubmission = async (id: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/admin/tools/submissions/${id}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setStatusMessage('Tool submission declined.');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const handleApproveReview = async (id: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setStatusMessage('User review verified and approved.');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const handleRejectReview = async (id: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/reject`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setStatusMessage('Review deleted.');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const handleCreateTool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newToolName.trim() || !newToolWebsite.trim() || !token) return;
+    try {
+      const res = await fetch('/api/admin/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newToolName.trim(),
+          websiteUrl: newToolWebsite.trim(),
+          category: newToolCategory,
+          pricing: newToolPricing,
+          pricingDetails: newToolPricingDetails.trim() || undefined,
+          practicalUseCases: newToolUseCases.split(',').map((s) => s.trim()).filter(Boolean),
+          restrictions: newToolRestrictions.split(',').map((s) => s.trim()).filter(Boolean),
+          requiresAccount: newToolRequiresAccount,
+          requiresApiKey: newToolRequiresApiKey,
+          isActive: true,
+          verificationStatus: 'verified',
+        }),
+      });
+      if (res.ok) {
+        setStatusMessage(`Tool "${newToolName}" added to verified AI Tools Directory.`);
+        setNewToolName('');
+        setNewToolWebsite('');
+        setNewToolPricingDetails('');
+        setNewToolUseCases('');
+        setNewToolRestrictions('');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const handleDeleteTool = async (id: string) => {
+    if (!confirm('Permanently remove this tool from directory?') || !token) return;
+    try {
+      const res = await fetch(`/api/admin/tools/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setStatusMessage('Tool removed from directory.');
+        loadAdminToolsData();
+      }
+    } catch {}
+  };
+
+  const loadAdminProducts = () => {
+    if (!token) return;
+    setLoadingProducts(true);
+    fetch('/api/admin/products', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setAdminProducts(data);
+        setLoadingProducts(false);
+      })
+      .catch(() => setLoadingProducts(false));
+  };
+
+  const handleCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName.trim() || !token) return;
+    try {
+      const res = await fetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: newProductName.trim(),
+          description: newProductDesc.trim(),
+          price: Number(newProductPrice) || 0,
+          currency: 'EUR',
+          merchant: newProductCategory,
+          availability: 'in_stock',
+          purchaseUrl: '#',
+          isAffiliate: false,
+          enabled: false, // Disabled by default for readiness
+        }),
+      });
+      if (res.ok) {
+        setStatusMessage('New digital product / guide catalog entry created (staged in readiness mode).');
+        setNewProductName('');
+        setNewProductDesc('');
+        loadAdminProducts();
+      }
+    } catch {}
+  };
+
+  const handleToggleProduct = async (prod: ProductItem) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/admin/products/${prod.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled: !prod.enabled }),
+      });
+      if (res.ok) {
+        loadAdminProducts();
+      }
+    } catch {}
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Delete this product item?') || !token) return;
+    try {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        loadAdminProducts();
+      }
+    } catch {}
   };
 
   // Auth Handlers
@@ -990,6 +1218,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         >
           <Sparkles className="w-3.5 h-3.5" />
           <span>AI Writing & Research</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('ai-tools')}
+          className={`px-3.5 py-2 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+            activeTab === 'ai-tools'
+              ? 'bg-slate-900 dark:bg-stone-100 text-white dark:text-slate-900'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span>AI Tools & Directory</span>
+          {(adminSubmissions.length > 0 || adminPendingReviews.length > 0) && (
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse ml-0.5" />
+          )}
         </button>
 
         <button
@@ -1990,6 +2233,382 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       )}
 
       {/* ========================================================
+          TAB: AI TOOLS & COMMUNITY DIRECTORY MODERATION
+          ======================================================== */}
+      {activeTab === 'ai-tools' && (
+        <div className="space-y-6">
+          <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-bold font-editorial text-slate-950 dark:text-white flex items-center gap-2">
+                  <Cpu className="w-5 h-5 text-blue-600" />
+                  <span>AI Tools Directory &amp; Community Moderation</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Curate verified software, review community tool suggestions, and moderate authentic user reviews.
+                </p>
+              </div>
+              <button
+                onClick={loadAdminToolsData}
+                disabled={loadingAiTools}
+                className="px-3 py-1.5 rounded-lg border border-stone-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 flex items-center gap-1.5 cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingAiTools ? 'animate-spin' : ''}`} />
+                <span>Refresh Queue</span>
+              </button>
+            </div>
+
+            {/* Sub-tabs within AI Tools */}
+            <div className="flex items-center gap-2 border-b border-stone-200 dark:border-slate-800 pb-2 text-xs font-medium">
+              <button
+                onClick={() => setAiToolsSubTab('directory')}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  aiToolsSubTab === 'directory'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Verified Directory ({adminTools.length})
+              </button>
+              <button
+                onClick={() => setAiToolsSubTab('submissions')}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  aiToolsSubTab === 'submissions'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>Submissions Queue</span>
+                {adminSubmissions.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
+                    {adminSubmissions.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setAiToolsSubTab('reviews')}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  aiToolsSubTab === 'reviews'
+                    ? 'bg-blue-600 text-white font-semibold'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-stone-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>Review Moderation</span>
+                {adminPendingReviews.length > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-slate-950 font-bold">
+                    {adminPendingReviews.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* SubTab 1: Directory List & Add Form */}
+            {aiToolsSubTab === 'directory' && (
+              <div className="space-y-6">
+                {/* Add Tool Form */}
+                <form
+                  onSubmit={handleCreateTool}
+                  className="p-4 rounded-xl bg-stone-50 dark:bg-slate-950 border border-stone-200 dark:border-slate-800 space-y-4"
+                >
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                    + Add Verified AI Software to Directory
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Tool Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={newToolName}
+                        onChange={(e) => setNewToolName(e.target.value)}
+                        placeholder="e.g. DeepSeek"
+                        required
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Official Website URL *
+                      </label>
+                      <input
+                        type="url"
+                        value={newToolWebsite}
+                        onChange={(e) => setNewToolWebsite(e.target.value)}
+                        placeholder="https://example.com"
+                        required
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Category
+                      </label>
+                      <select
+                        value={newToolCategory}
+                        onChange={(e) => setNewToolCategory(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none capitalize"
+                      >
+                        <option value="writing">Writing &amp; Content</option>
+                        <option value="coding">Coding &amp; Software</option>
+                        <option value="research">Research &amp; Analysis</option>
+                        <option value="image-video">Image &amp; Video</option>
+                        <option value="productivity">Productivity</option>
+                        <option value="education">Education</option>
+                        <option value="audio-music">Audio &amp; Speech</option>
+                        <option value="automation">Automation</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Pricing Tier
+                      </label>
+                      <select
+                        value={newToolPricing}
+                        onChange={(e) => setNewToolPricing(e.target.value as any)}
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none capitalize"
+                      >
+                        <option value="free">Free Forever</option>
+                        <option value="freemium">Freemium</option>
+                        <option value="free-trial">Free Trial</option>
+                        <option value="paid">Paid Only</option>
+                        <option value="open-source">Open Source</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Practical Use Cases (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={newToolUseCases}
+                        onChange={(e) => setNewToolUseCases(e.target.value)}
+                        placeholder="Drafting essays, summarization, brainstorming"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
+                        Known Restrictions &amp; Caveats (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={newToolRestrictions}
+                        onChange={(e) => setNewToolRestrictions(e.target.value)}
+                        placeholder="Rate limits on free tier, requires GPU for local"
+                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <div className="flex items-center gap-4 text-xs">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newToolRequiresAccount}
+                          onChange={(e) => setNewToolRequiresAccount(e.target.checked)}
+                          className="rounded text-blue-600"
+                        />
+                        <span>Requires Account Registration</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newToolRequiresApiKey}
+                          onChange={(e) => setNewToolRequiresApiKey(e.target.checked)}
+                          className="rounded text-blue-600"
+                        />
+                        <span>Requires API Key</span>
+                      </label>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm"
+                    >
+                      Publish Verified Tool
+                    </button>
+                  </div>
+                </form>
+
+                {/* Directory Table */}
+                <div className="border border-stone-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <div className="p-3 bg-stone-100 dark:bg-slate-950 font-semibold text-xs text-slate-700 dark:text-slate-300">
+                    Active Directory Entries ({adminTools.length})
+                  </div>
+                  <div className="divide-y divide-stone-200 dark:divide-slate-800 text-xs">
+                    {adminTools.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:bg-stone-50 dark:hover:bg-slate-800/40"
+                      >
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-950 dark:text-white">{tool.name}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 capitalize">
+                              {tool.category}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 capitalize">
+                              {tool.pricing}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {tool.websiteUrl} · Last reviewed:{' '}
+                            {tool.lastReviewedDate ? new Date(tool.lastReviewedDate).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={tool.websiteUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-stone-200"
+                            title="Visit website"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                          <button
+                            onClick={() => handleDeleteTool(tool.id)}
+                            className="p-1.5 text-red-500 hover:text-red-700 cursor-pointer"
+                            title="Delete tool"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SubTab 2: Submissions Queue */}
+            {aiToolsSubTab === 'submissions' && (
+              <div className="space-y-4">
+                {adminSubmissions.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500 bg-stone-50 dark:bg-slate-950 rounded-xl border border-stone-200 dark:border-slate-800">
+                    No pending submissions in queue. Community suggestions submitted via the public &quot;Suggest a Tool&quot; form will be listed here.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {adminSubmissions.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="p-4 rounded-xl bg-stone-50 dark:bg-slate-950 border border-stone-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-slate-950 dark:text-white">{sub.name}</span>
+                            <span className="px-2 py-0.5 rounded text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 font-bold uppercase">
+                              Pending Review
+                            </span>
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Website: <a href={sub.websiteUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline">{sub.websiteUrl}</a>
+                            {' · '}Category: <span className="capitalize">{sub.category}</span>
+                            {' · '}Pricing: <span className="capitalize">{sub.pricing}</span>
+                          </div>
+                          {sub.practicalUseCases && sub.practicalUseCases.length > 0 && (
+                            <p className="text-xs text-slate-600 dark:text-slate-300">
+                              <strong>Use Cases:</strong> {sub.practicalUseCases.join(', ')}
+                            </p>
+                          )}
+                          {sub.importantRestrictions && sub.importantRestrictions.length > 0 && (
+                            <p className="text-xs text-slate-500">
+                              <strong>Restrictions:</strong> {sub.importantRestrictions.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleApproveSubmission(sub.id)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer shadow-sm flex items-center gap-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve &amp; Publish</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectSubmission(sub.id)}
+                            className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 text-xs font-semibold cursor-pointer flex items-center gap-1"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SubTab 3: Review Moderation */}
+            {aiToolsSubTab === 'reviews' && (
+              <div className="space-y-4">
+                {adminPendingReviews.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500 bg-stone-50 dark:bg-slate-950 rounded-xl border border-stone-200 dark:border-slate-800">
+                    No pending authentic reviews to moderate. Reviews submitted with authentic user feedback will be staged here before publication.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {adminPendingReviews.map((rev) => (
+                      <div
+                        key={rev.id}
+                        className="p-4 rounded-xl bg-stone-50 dark:bg-slate-950 border border-stone-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-xs text-slate-950 dark:text-white">
+                              {rev.authorName}
+                            </span>
+                            <span className="text-amber-500 text-xs">
+                              {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                            </span>
+                            {rev.toolTitle && (
+                              <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold">
+                                on {rev.toolTitle}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-700 dark:text-slate-300 italic font-serif">
+                            &quot;{rev.comment}&quot;
+                          </p>
+                          <span className="text-[10px] text-slate-400">
+                            Submitted: {new Date(rev.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleApproveReview(rev.id)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold cursor-pointer shadow-sm flex items-center gap-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Approve Review</span>
+                          </button>
+                          <button
+                            onClick={() => handleRejectReview(rev.id)}
+                            className="px-3 py-1.5 rounded-lg bg-red-100 dark:bg-red-950 hover:bg-red-200 text-red-700 dark:text-red-300 text-xs font-semibold cursor-pointer flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Discard Spam</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
           TAB 4: REVENUE & GROWTH CENTER (MONETIZATION)
           ======================================================== */}
       {activeTab === 'revenue' && (
@@ -2234,6 +2853,115 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <span className="text-slate-400 text-[11px]">
                       {new Date(sub.subscribedAt).toLocaleDateString()} · {sub.active ? 'Active' : 'Unsubscribed'}
                     </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* E. Digital Products & Guides Catalog (E-Commerce Readiness) */}
+            <div className="p-5 rounded-xl bg-stone-50 dark:bg-slate-950 border border-stone-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <ShoppingBag className="w-4 h-4 text-emerald-600" />
+                    <span>Digital Products &amp; Guides Catalog ({adminProducts.length})</span>
+                  </h4>
+                  <span className="text-[11px] text-slate-500">
+                    Drafted items remain disabled on the public site until real merchant integration is active. €0 overhead.
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200">
+                  Readiness Mode (Drafts Staged)
+                </span>
+              </div>
+
+              {/* Add Product Form */}
+              <form onSubmit={handleCreateProduct} className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs pt-1">
+                <div>
+                  <input
+                    type="text"
+                    value={newProductName}
+                    onChange={(e) => setNewProductName(e.target.value)}
+                    placeholder="Product / Guide title..."
+                    required
+                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <input
+                    type="text"
+                    value={newProductDesc}
+                    onChange={(e) => setNewProductDesc(e.target.value)}
+                    placeholder="Brief description..."
+                    className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newProductPrice}
+                    onChange={(e) => setNewProductPrice(parseFloat(e.target.value) || 0)}
+                    placeholder="19.99"
+                    className="w-20 px-2 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none font-tabular"
+                  />
+                  <select
+                    value={newProductCategory}
+                    onChange={(e) => setNewProductCategory(e.target.value as any)}
+                    className="flex-1 px-2 py-2 rounded-lg bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-slate-900 dark:text-white outline-none capitalize text-xs"
+                  >
+                    <option value="guide">Guide</option>
+                    <option value="subscription">Subscription</option>
+                    <option value="merchandise">Merchandise</option>
+                    <option value="support">Support</option>
+                  </select>
+                </div>
+                <div>
+                  <button
+                    type="submit"
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-sm"
+                  >
+                    + Stage Product
+                  </button>
+                </div>
+              </form>
+
+              {/* Products List */}
+              <div className="divide-y divide-stone-200 dark:divide-slate-800 text-xs">
+                {adminProducts.map((prod) => (
+                  <div key={prod.id} className="py-2.5 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <strong className="text-slate-900 dark:text-white">{prod.name}</strong>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-tabular font-semibold">
+                          €{prod.price.toFixed(2)}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-stone-100 dark:bg-slate-800 text-slate-500 capitalize">
+                          {prod.merchant}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">{prod.description}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleToggleProduct(prod)}
+                        className={`px-2.5 py-1 rounded text-[11px] font-semibold cursor-pointer ${
+                          prod.enabled
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200'
+                            : 'bg-stone-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                        }`}
+                      >
+                        {prod.enabled ? 'Active (Public)' : 'Disabled (Staged)'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(prod.id)}
+                        className="p-1 text-red-500 hover:text-red-700 cursor-pointer"
+                        title="Delete product"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

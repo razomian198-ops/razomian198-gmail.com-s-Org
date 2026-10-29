@@ -235,7 +235,19 @@ export type EditorialPostType =
   | 'sports-analysis'
   | 'opinion'
   | 'fact-check'
-  | 'guide';
+  | 'guide'
+  | 'review'
+  | 'recommendation';
+
+export type GuideTemplateType =
+  | 'how-to'
+  | 'tutorial'
+  | 'comparison'
+  | 'feature-comparison'
+  | 'troubleshooting'
+  | 'checklist'
+  | 'faq';
+
 
 // 7-Stage Editorial Workflow: Idea → Researching → AI Draft → Needs Review → Approved → Published → Archived
 export type ContentStatus =
@@ -360,6 +372,41 @@ export interface EditorialArticle {
     title: string;
     level: number;
   }>;
+  guideTemplate?: {
+    templateType: GuideTemplateType;
+    difficulty?: 'beginner' | 'intermediate' | 'advanced';
+    estimatedMinutes?: number;
+    prerequisites?: string[];
+    steps?: Array<{
+      stepNumber: number;
+      title: string;
+      description: string;
+      codeSnippet?: string;
+      warningOrTip?: string;
+    }>;
+    comparisonItems?: Array<{
+      name: string;
+      pricing: string;
+      pros: string[];
+      cons: string[];
+      bestFor: string;
+      officialUrl: string;
+      affiliateUrl?: string;
+    }>;
+    checklistItems?: Array<{
+      id: string;
+      text: string;
+      category: string;
+      critical: boolean;
+    }>;
+    faqs?: Array<{
+      question: string;
+      answer: string;
+    }>;
+  };
+  affiliateDisclosure?: string;
+  hasAffiliateLinks?: boolean;
+  isPremium?: boolean;
 }
 
 export interface NewsletterSubscriber {
@@ -498,4 +545,68 @@ export interface CoverageComparison {
   latestReportAt: string;
   singleSourceNotice?: string;
 }
+
+// AI Tools Directory & Authentic Reviews Interfaces
+export type AiToolCategory =
+  | 'writing'
+  | 'coding'
+  | 'research'
+  | 'image-editing'
+  | 'productivity'
+  | 'education'
+  | 'automation';
+
+export type AiToolPricing = 'free' | 'freemium' | 'trial' | 'paid';
+
+export interface AiToolReview {
+  id: string;
+  toolId: string;
+  authorName: string;
+  rating: number; // 1 to 5
+  comment: string;
+  useCase?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  isEditorialAssessment?: boolean;
+}
+
+export interface AiTool {
+  id: string;
+  slug: string;
+  name: string;
+  websiteUrl: string;
+  category: AiToolCategory;
+  pricing: AiToolPricing;
+  pricingDetails: string;
+  requiresAccount: boolean;
+  requiresApiKey: boolean;
+  summary: string;
+  practicalUseCases: string[];
+  importantRestrictions: string[];
+  officialSourceUrl: string;
+  lastReviewedDate: string;
+  affiliateUrl?: string;
+  affiliateDisclosure?: string;
+  editorialRating?: number; // e.g. 4.8
+  status: 'published' | 'pending_review' | 'rejected';
+  submittedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// E-Commerce Readiness Product Catalog Interface
+export interface ProductItem {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  merchant: string;
+  price: number;
+  currency: string;
+  availability: 'in_stock' | 'out_of_stock' | 'preorder';
+  purchaseUrl: string;
+  isAffiliate: boolean;
+  enabled: boolean;
+}
+
 

@@ -23,6 +23,8 @@ import { Footer } from './components/Footer.tsx';
 import { FactTrailSection } from './components/FactTrailSection.tsx';
 import { FactTrailView } from './components/FactTrailView.tsx';
 import { FactTrailDetailView } from './components/FactTrailDetailView.tsx';
+import { AiToolsDirectory } from './components/AiToolsDirectory.tsx';
+import { ConsentBanner } from './components/ConsentBanner.tsx';
 import {
   NewsItem,
   SportsFixture,
@@ -92,12 +94,15 @@ export default function App() {
     return null;
   });
 
-  // Sync /admin URL path and ?story= query param with browser navigation
+  // Sync /admin URL path and ?story= / ?tool= query param with browser navigation
   useEffect(() => {
     const handlePopState = () => {
       setIsAdminRoute(window.location.pathname.startsWith('/admin'));
       const params = new URLSearchParams(window.location.search);
       setSelectedTrailId(params.get('story'));
+      if (params.get('tool')) {
+        setActiveCategory('ai-tools');
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -416,6 +421,18 @@ export default function App() {
             }}
             onOpenTrail={handleOpenTrail}
           />
+        ) : activeCategory === 'ai-tools' || activeCategory === 'reviews' ? (
+          /* Dedicated AI Tools Directory & Authentic Reviews Benchmark Hub */
+          <AiToolsDirectory
+            currentLanguage={currentLanguage}
+            onBackToHome={() => {
+              setActiveCategory('home');
+              const url = new URL(window.location.href);
+              url.searchParams.delete('tool');
+              window.history.pushState({}, '', url.pathname + (url.search || ''));
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
         ) : EDITORIAL_SECTIONS.includes(activeCategory) ? (
           /* Dedicated View for the 9 Editorial Channels (Blogs, Quick Summaries, Deep Explainers, etc.) */
           <EditorialSectionView
@@ -625,6 +642,20 @@ export default function App() {
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onOpenArticle={(item) => setSelectedArticle(item)}
+        onOpenArticleBySlug={(slug) => {
+          setSelectedBlogSlug(slug);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+        onOpenTrail={(trailId) => {
+          handleOpenTrail(trailId);
+        }}
+        onOpenTool={(toolSlug) => {
+          setActiveCategory('ai-tools');
+          const url = new URL(window.location.href);
+          url.searchParams.set('tool', toolSlug);
+          window.history.pushState({}, '', url.toString());
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
       />
 
       <ProviderStatusModal
@@ -664,6 +695,9 @@ export default function App() {
         isOpen={isSponsorshipModalOpen}
         onClose={() => setIsSponsorshipModalOpen(false)}
       />
+
+      {/* GDPR / ePrivacy Cookie & Privacy Consent Banner */}
+      <ConsentBanner />
     </div>
   );
 }

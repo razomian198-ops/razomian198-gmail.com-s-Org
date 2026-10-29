@@ -192,9 +192,16 @@ export const Footer: React.FC<FooterProps> = ({
           <div>
             © {new Date().getFullYear()} FactInfoLive Intelligence Consortium. All publisher rights belong to original wire reporters.
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <button onClick={() => onSelectCategory('about')} className="hover:underline cursor-pointer">
               Ethics &amp; Retractions
+            </button>
+            <span aria-hidden="true">·</span>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('fil_open_cookie_preferences'))}
+              className="hover:underline text-blue-600 dark:text-blue-400 font-medium cursor-pointer"
+            >
+              Privacy &amp; Cookie Preferences
             </button>
             <span aria-hidden="true">·</span>
             <button onClick={() => onSelectCategory('all-topics')} className="hover:underline cursor-pointer">

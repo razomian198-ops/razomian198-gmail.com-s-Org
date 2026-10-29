@@ -37,6 +37,11 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
   const t = TRANSLATIONS[currentLanguage];
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
+  const toggleCheck = (id: string) => {
+    setCheckedItems((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -228,6 +233,220 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
       <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 font-sans leading-relaxed text-base sm:text-lg space-y-6 whitespace-pre-line">
         {article.content}
       </div>
+
+      {/* Editorial Guide Template Interactive Modules (Checklists, Comparisons, Step Tutorials, FAQs) */}
+      {article.guideTemplate && (
+        <div className="space-y-6 pt-6 border-t border-stone-200 dark:border-slate-800">
+          {/* 1. Checklist Template */}
+          {article.guideTemplate.templateType === 'checklist' && article.guideTemplate.checklistItems && (
+            <div className="p-6 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                  <h3 className="text-lg font-bold font-editorial text-slate-900 dark:text-white">
+                    Interactive Verification Checklist
+                  </h3>
+                </div>
+                {article.guideTemplate.estimatedMinutes && (
+                  <span className="text-xs text-slate-500 flex items-center gap-1 font-mono">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>~{article.guideTemplate.estimatedMinutes} mins execution</span>
+                  </span>
+                )}
+              </div>
+
+              {article.guideTemplate.prerequisites && article.guideTemplate.prerequisites.length > 0 && (
+                <div className="p-3 rounded-lg bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 text-xs text-blue-900 dark:text-blue-300">
+                  <span className="font-bold block mb-1">Prerequisites:</span>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {article.guideTemplate.prerequisites.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="space-y-2.5">
+                {article.guideTemplate.checklistItems.map((item) => (
+                  <label
+                    key={item.id}
+                    className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer ${
+                      checkedItems[item.id]
+                        ? 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-slate-900 dark:text-stone-100'
+                        : 'bg-white dark:bg-slate-950 border-stone-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={Boolean(checkedItems[item.id])}
+                      onChange={() => toggleCheck(item.id)}
+                      className="mt-0.5 w-4 h-4 text-emerald-600 rounded border-stone-300 focus:ring-emerald-500 cursor-pointer"
+                    />
+                    <div className="space-y-0.5 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-[10px] uppercase tracking-wider text-slate-400">
+                          {item.category}
+                        </span>
+                        {item.critical && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            Critical Step
+                          </span>
+                        )}
+                      </div>
+                      <p className={`leading-relaxed ${checkedItems[item.id] ? 'line-through text-slate-500' : ''}`}>
+                        {item.text}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Tool & Feature Comparison Template */}
+          {article.guideTemplate.templateType === 'comparison' && article.guideTemplate.comparisonItems && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Scale className="w-5 h-5 text-blue-500" />
+                <h3 className="text-xl font-bold font-editorial text-slate-900 dark:text-white">
+                  Empirical Benchmark & Feature Comparison
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {article.guideTemplate.comparisonItems.map((item, i) => (
+                  <div
+                    key={i}
+                    className="p-5 rounded-xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-3.5 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                          {item.name}
+                        </h4>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-stone-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                          {item.pricing}
+                        </span>
+                      </div>
+                      <div className="p-2.5 rounded bg-blue-50/70 dark:bg-blue-950/40 text-xs text-blue-900 dark:text-blue-300">
+                        <strong className="block text-[10px] uppercase font-bold text-blue-700 dark:text-blue-400">
+                          Best For:
+                        </strong>
+                        {item.bestFor}
+                      </div>
+                      <div className="space-y-1.5 text-xs">
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                          Strengths:
+                        </span>
+                        {item.pros.map((p, idx) => (
+                          <div key={idx} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-300">
+                            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{p}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-1.5 text-xs pt-1">
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+                          Trade-offs & Constraints:
+                        </span>
+                        {item.cons.map((c, idx) => (
+                          <div key={idx} className="flex items-start gap-1.5 text-slate-600 dark:text-slate-300">
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                            <span>{c}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <a
+                      href={item.officialUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 w-full py-2 px-3 rounded-lg bg-stone-200 dark:bg-slate-800 hover:bg-blue-600 hover:text-white transition-colors text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Visit Official Source</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3. Step-by-Step Tutorial Template */}
+          {article.guideTemplate.templateType === 'tutorial' && article.guideTemplate.steps && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <List className="w-5 h-5 text-blue-500" />
+                <h3 className="text-xl font-bold font-editorial text-slate-900 dark:text-white">
+                  Step-by-Step Execution Guide
+                </h3>
+              </div>
+              <div className="space-y-4">
+                {article.guideTemplate.steps.map((st) => (
+                  <div
+                    key={st.stepNumber}
+                    className="p-5 rounded-xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-2.5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                        {st.stepNumber}
+                      </span>
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white">
+                        {st.title}
+                      </h4>
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed pl-8">
+                      {st.description}
+                    </p>
+                    {st.warningOrTip && (
+                      <div className="ml-8 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-300">
+                        <strong>Practical Tip:</strong> {st.warningOrTip}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 4. Troubleshooting / FAQ Module */}
+          {article.guideTemplate.faqs && article.guideTemplate.faqs.length > 0 && (
+            <div className="p-6 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-5 h-5 text-blue-500" />
+                <h3 className="text-lg font-bold font-editorial text-slate-900 dark:text-white">
+                  Frequently Asked Questions & Problem Solving
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {article.guideTemplate.faqs.map((faq, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-white dark:bg-slate-950 border border-stone-200/80 dark:border-slate-800 space-y-1.5 text-xs sm:text-sm">
+                    <span className="font-bold text-slate-900 dark:text-white block">
+                      Q: {faq.question}
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+                      {faq.answer}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Ethical Affiliate / Independence Disclosure */}
+      {article.hasAffiliateLinks && (
+        <div className="p-4 rounded-xl bg-stone-100 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 text-xs text-slate-500 space-y-1">
+          <span className="font-bold uppercase tracking-wider text-[10px] text-slate-600 dark:text-slate-400 block">
+            Ethical Affiliate & Independence Disclosure:
+          </span>
+          <p className="leading-relaxed">
+            {article.affiliateDisclosure ||
+              'FactInfoLive may earn an ethical affiliate commission on qualifying purchases made through external merchant links. Our editorial investigations, factual verifications, and benchmark rankings remain 100% independent and are never sold or influenced by commercial partners.'}
+          </p>
+        </div>
+      )}
 
       {/* Deep Explainer Sections if applicable */}
       {explainer && (

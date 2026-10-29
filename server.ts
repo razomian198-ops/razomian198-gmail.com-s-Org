@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -493,28 +494,98 @@ ${publishedArticles
   });
 
   // Global search
+  // Global smart search across News, Sports, FactTrail, Guides, and AI Tools
   app.get('/api/search', async (req: Request, res: Response) => {
     try {
-      const query = (req.query.q as string) || '';
+      const rawQuery = (req.query.q as string) || '';
       const category = (req.query.category as string) || undefined;
+      const typeFilter = (req.query.type as string) || 'all'; // 'all' | 'news' | 'sports' | 'guides' | 'tools' | 'facttrail'
+      const query = rawQuery.trim().toLowerCase();
 
-      const newsResults = await newsService.searchNews(query, category);
+      if (!query) {
+        return res.json({
+          query: '',
+          total: 0,
+          news: [],
+          sports: [],
+          articles: [],
+          factTrails: [],
+          tools: [],
+          suggestions: [],
+        });
+      }
+
+      const queryTokens = query.split(/\s+/).filter(Boolean);
+
+      // 1. News items
+      const allNews = await newsService.searchNews(rawQuery, category);
+      const newsResults = typeFilter === 'all' || typeFilter === 'news' ? allNews : [];
+
+      // 2. Sports fixtures
       const sportsFixtures = await sportsService.getFixtures();
-      const matchedSports = query
-        ? sportsFixtures.filter(
-            (f) =>
-              f.homeTeam.name.toLowerCase().includes(query.toLowerCase()) ||
-              f.awayTeam.name.toLowerCase().includes(query.toLowerCase()) ||
-              f.competition.toLowerCase().includes(query.toLowerCase()) ||
-              f.sport.toLowerCase().includes(query.toLowerCase())
-          )
-        : [];
+      const matchedSports =
+        typeFilter === 'all' || typeFilter === 'sports'
+          ? sportsFixtures.filter(
+              (f) =>
+                f.homeTeam.name.toLowerCase().includes(query) ||
+                f.awayTeam.name.toLowerCase().includes(query) ||
+                f.competition.toLowerCase().includes(query) ||
+                f.sport.toLowerCase().includes(query)
+            )
+          : [];
+
+      // 3. Editorial Articles, Deep Explainers & Guides
+      const allArticles = editorialStore.getArticles({ limit: 100 }).items;
+      const matchedArticles =
+        typeFilter === 'all' || typeFilter === 'guides'
+          ? allArticles.filter((art: any) => {
+              const text = `${art.title} ${art.subtitle || ''} ${art.tags.join(' ')} ${art.category} ${art.content}`.toLowerCase();
+              return queryTokens.every((tok) => text.includes(tok)) || text.includes(query);
+            })
+          : [];
+
+      // 4. FactTrail Storylines
+      const allTrails = await factTrailService.getAllTrails();
+      const matchedTrails =
+        typeFilter === 'all' || typeFilter === 'facttrail'
+          ? allTrails.filter((tr) => {
+              const text = `${tr.title} ${tr.overview} ${tr.category} ${tr.publishers.join(' ')}`.toLowerCase();
+              return queryTokens.every((tok) => text.includes(tok)) || text.includes(query);
+            })
+          : [];
+
+      // 5. AI Tools Directory entries
+      const allTools = editorialStore.getTools();
+      const matchedTools =
+        typeFilter === 'all' || typeFilter === 'tools'
+          ? allTools.filter((tl) => {
+              const text = `${tl.name} ${tl.summary} ${tl.category} ${tl.pricing} ${tl.practicalUseCases.join(' ')}`.toLowerCase();
+              return queryTokens.every((tok) => text.includes(tok)) || text.includes(query);
+            })
+          : [];
+
+      // Autocomplete suggestions for typeahead
+      const suggestions: string[] = [];
+      matchedTools.forEach((t) => suggestions.push(t.name));
+      matchedTrails.slice(0, 3).forEach((tr) => suggestions.push(tr.title));
+      matchedArticles.slice(0, 3).forEach((a: any) => suggestions.push(a.title));
+      newsResults.slice(0, 3).forEach((n) => suggestions.push(n.title));
+      const uniqueSuggestions = Array.from(new Set(suggestions)).slice(0, 6);
 
       res.json({
-        query,
-        total: newsResults.length + matchedSports.length,
+        query: rawQuery,
+        total:
+          newsResults.length +
+          matchedSports.length +
+          matchedArticles.length +
+          matchedTrails.length +
+          matchedTools.length,
         news: newsResults,
         sports: matchedSports,
+        articles: matchedArticles,
+        factTrails: matchedTrails,
+        tools: matchedTools,
+        suggestions: uniqueSuggestions,
       });
     } catch (err: any) {
       res.status(500).json({ error: 'Search failed', details: err.message });
@@ -1366,6 +1437,308 @@ ${publishedArticles
       return res.status(401).json({ error: 'Unauthorized: Session invalid' });
     }
     res.json(editorialStore.getAnalyticsSummary());
+  });
+
+  // ==========================================
+  // AI TOOLS DIRECTORY & AUTHENTIC REVIEWS
+  // ==========================================
+
+  // Public: List verified AI tools
+  app.get('/api/tools', (req: Request, res: Response) => {
+    try {
+      const category = (req.query.category as string) || undefined;
+      const pricing = (req.query.pricing as string) || undefined;
+      const search = (req.query.search as string) || undefined;
+      const tools = editorialStore.getTools({ category, pricing, search, status: 'published' });
+      res.json(tools);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve AI tools', details: err.message });
+    }
+  });
+
+  // Public: Get single AI tool by slug with approved reviews
+  app.get('/api/tools/:slug', (req: Request, res: Response) => {
+    try {
+      const tool = editorialStore.getToolBySlug(req.params.slug);
+      if (!tool) return res.status(404).json({ error: 'AI tool not found' });
+      const reviews = editorialStore.getToolReviews(tool.id, false);
+      res.json({ ...tool, reviews });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to retrieve AI tool', details: err.message });
+    }
+  });
+
+  // Public: Suggest a Tool (submitted to moderation queue)
+  app.post('/api/tools/submit', (req: Request, res: Response) => {
+    try {
+      const { name, websiteUrl, category, pricing, summary, practicalUseCases, importantRestrictions, submittedBy } = req.body;
+      if (!name || !websiteUrl) {
+        return res.status(400).json({ error: 'Tool name and official website URL are required' });
+      }
+      const newTool = editorialStore.suggestTool({
+        name,
+        websiteUrl,
+        category: category || 'productivity',
+        pricing: pricing || 'freemium',
+        summary: summary || '',
+        practicalUseCases: Array.isArray(practicalUseCases) ? practicalUseCases : [],
+        importantRestrictions: Array.isArray(importantRestrictions) ? importantRestrictions : [],
+        submittedBy: submittedBy || 'Community Reader',
+      });
+      res.status(201).json({
+        message: 'Thank you for your submission. Our editorial team will audit the tool against our verification guidelines before publishing.',
+        tool: newTool,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to submit tool', details: err.message });
+    }
+  });
+
+  // Public: Submit authentic user review for an AI tool (submitted to moderation queue)
+  app.post('/api/tools/:id/review', (req: Request, res: Response) => {
+    try {
+      const toolId = req.params.id;
+      const tool = editorialStore.getToolById(toolId);
+      if (!tool) return res.status(404).json({ error: 'AI tool not found' });
+
+      const { authorName, rating, comment, useCase } = req.body;
+      if (!authorName || !rating || !comment) {
+        return res.status(400).json({ error: 'Author name, rating (1-5), and written comment are required' });
+      }
+      const numericRating = Math.max(1, Math.min(5, Math.round(Number(rating))));
+      const newReview = editorialStore.addToolReview({
+        toolId,
+        authorName: String(authorName).slice(0, 50),
+        rating: numericRating,
+        comment: String(comment).slice(0, 1000),
+        useCase: useCase ? String(useCase).slice(0, 100) : undefined,
+        status: 'pending',
+        isEditorialAssessment: false,
+      });
+      res.status(201).json({
+        message: 'Your review has been submitted to the moderation queue to ensure authenticity and prevent spam.',
+        review: newReview,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to submit review', details: err.message });
+    }
+  });
+
+  // Admin: List all tools (including pending review)
+  app.get('/api/admin/tools', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user) return res.status(401).json({ error: 'Unauthorized: Session invalid' });
+    const status = (req.query.status as string) || undefined;
+    res.json(editorialStore.getTools({ status }));
+  });
+
+  // Admin: Create tool directly
+  app.post('/api/admin/tools', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') {
+      return res.status(403).json({ error: 'Forbidden: Editor or Administrator role required' });
+    }
+    const created = editorialStore.createTool(req.body, user.name);
+    res.status(201).json(created);
+  });
+
+  // Admin: Update tool
+  app.put('/api/admin/tools/:id', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') {
+      return res.status(403).json({ error: 'Forbidden: Editor or Administrator role required' });
+    }
+    const updated = editorialStore.updateTool(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Tool not found' });
+    res.json(updated);
+  });
+
+  // Admin: Delete tool
+  app.delete('/api/admin/tools/:id', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role !== 'administrator') {
+      return res.status(403).json({ error: 'Forbidden: Administrator privileges required' });
+    }
+    const success = editorialStore.deleteTool(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Tool not found' });
+    res.json({ success: true });
+  });
+
+  // Admin: Moderation Queues (Submissions & Reviews)
+  app.get('/api/admin/tools/submissions', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    res.json(editorialStore.getToolSubmissions());
+  });
+
+  const handleApproveSub = (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') return res.status(403).json({ error: 'Forbidden' });
+    const approved = editorialStore.approveToolSubmission(req.params.id);
+    if (!approved) return res.status(404).json({ error: 'Submission not found' });
+    res.json(approved);
+  };
+  app.put('/api/admin/tools/submissions/:id/approve', handleApproveSub);
+  app.post('/api/admin/tools/submissions/:id/approve', handleApproveSub);
+
+  const handleRejectSub = (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') return res.status(403).json({ error: 'Forbidden' });
+    const rejected = editorialStore.rejectToolSubmission(req.params.id);
+    if (!rejected) return res.status(404).json({ error: 'Submission not found' });
+    res.json(rejected);
+  };
+  app.put('/api/admin/tools/submissions/:id/reject', handleRejectSub);
+  app.post('/api/admin/tools/submissions/:id/reject', handleRejectSub);
+
+  app.get('/api/admin/reviews/pending', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    res.json(editorialStore.getPendingReviews());
+  });
+
+  const handleApproveRev = (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') return res.status(403).json({ error: 'Forbidden' });
+    const approved = editorialStore.approveReview(req.params.id);
+    if (!approved) return res.status(404).json({ error: 'Review not found' });
+    res.json(approved);
+  };
+  app.put('/api/admin/reviews/:id/approve', handleApproveRev);
+  app.post('/api/admin/reviews/:id/approve', handleApproveRev);
+
+  const handleRejectRev = (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role === 'author') return res.status(403).json({ error: 'Forbidden' });
+    const rejected = editorialStore.rejectReview(req.params.id);
+    if (!rejected) return res.status(404).json({ error: 'Review not found' });
+    res.json(rejected);
+  };
+  app.put('/api/admin/reviews/:id/reject', handleRejectRev);
+  app.post('/api/admin/reviews/:id/reject', handleRejectRev);
+
+  // ==========================================
+  // E-COMMERCE READINESS PRODUCT CATALOG
+  // ==========================================
+
+  // Public: Products (only if enabled)
+  app.get('/api/products', (_req: Request, res: Response) => {
+    res.json(editorialStore.getProducts(false));
+  });
+
+  // Admin: All products
+  app.get('/api/admin/products', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    res.json(editorialStore.getProducts(true));
+  });
+
+  app.post('/api/admin/products', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role !== 'administrator') return res.status(403).json({ error: 'Forbidden' });
+    const created = editorialStore.createProduct(req.body);
+    res.status(201).json(created);
+  });
+
+  app.put('/api/admin/products/:id', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role !== 'administrator') return res.status(403).json({ error: 'Forbidden' });
+    const updated = editorialStore.updateProduct(req.params.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Product not found' });
+    res.json(updated);
+  });
+
+  app.delete('/api/admin/products/:id', (req: Request, res: Response) => {
+    const authHeader = req.headers.authorization;
+    const user = editorialStore.verifySession(authHeader);
+    if (!user || user.role !== 'administrator') return res.status(403).json({ error: 'Forbidden' });
+    const success = editorialStore.deleteProduct(req.params.id);
+    if (!success) return res.status(404).json({ error: 'Product not found' });
+    res.json({ success: true });
+  });
+
+  // ==========================================
+  // SEO ENDPOINTS (SITEMAP & ROBOTS.TXT)
+  // ==========================================
+
+  app.get('/robots.txt', (_req: Request, res: Response) => {
+    res.type('text/plain');
+    res.send(`User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Sitemap: /sitemap.xml
+`);
+  });
+
+  app.get('/sitemap.xml', async (req: Request, res: Response) => {
+    try {
+      const host = req.get('host') || 'factinfolive.org';
+      const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+      const baseUrl = `${protocol}://${host}`;
+
+      const articles = editorialStore.getArticles({ limit: 500 }).items;
+      const tools = editorialStore.getTools();
+      const trails = await factTrailService.getAllTrails();
+
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
+
+      // Static routes
+      const staticRoutes = [
+        { loc: '/', changefreq: 'hourly', priority: '1.0' },
+        { loc: '/editorial-policy', changefreq: 'monthly', priority: '0.6' },
+        { loc: '/corrections', changefreq: 'weekly', priority: '0.6' },
+      ];
+
+      for (const r of staticRoutes) {
+        xml += `  <url>\n    <loc>${baseUrl}${r.loc}</loc>\n    <changefreq>${r.changefreq}</changefreq>\n    <priority>${r.priority}</priority>\n  </url>\n`;
+      }
+
+      // Editorial Articles & Guides
+      for (const a of articles) {
+        xml += `  <url>\n    <loc>${baseUrl}/?article=${encodeURIComponent(a.slug)}</loc>\n    <lastmod>${(a.updatedAt || a.publishedAt).split('T')[0]}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>0.8</priority>\n  </url>\n`;
+      }
+
+      // AI Tools
+      for (const t of tools) {
+        xml += `  <url>\n    <loc>${baseUrl}/?tool=${encodeURIComponent(t.slug)}</loc>\n    <lastmod>${(t.updatedAt || t.createdAt).split('T')[0]}</lastmod>\n    <changefreq>monthly</changefreq>\n    <priority>0.7</priority>\n  </url>\n`;
+      }
+
+      // FactTrail Storylines
+      for (const tr of trails) {
+        xml += `  <url>\n    <loc>${baseUrl}/?story=${encodeURIComponent(tr.id)}</loc>\n    <lastmod>${tr.latestUpdateAt.split('T')[0]}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>0.9</priority>\n  </url>\n`;
+      }
+
+      xml += `</urlset>`;
+      res.type('application/xml');
+      res.send(xml);
+    } catch (err: any) {
+      res.status(500).type('text/plain').send('Error generating sitemap: ' + err.message);
+    }
+  });
+
+  // Downloadable Verified Project Archive for GitHub / Deployment Backup
+  app.get('/factinfolive-release-backup.zip', (_req: Request, res: Response) => {
+    const zipPath = path.resolve(__dirname, 'public/factinfolive-release-backup.zip');
+    if (fs.existsSync(zipPath)) {
+      res.download(zipPath, 'factinfolive-release-backup.zip');
+    } else {
+      res.status(404).send('Backup archive not found');
+    }
   });
 
   // Return clean JSON 404 for unmatched API routes to prevent SPA HTML interception

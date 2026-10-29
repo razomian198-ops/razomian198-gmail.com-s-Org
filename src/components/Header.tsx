@@ -95,10 +95,11 @@ export const Header: React.FC<HeaderProps> = ({
     { code: 'ar', label: 'العربية' },
   ];
 
-  // The 9 core editorial navigation sections displayed in the secondary strip and mobile drawer
+  // The core editorial navigation sections displayed in the secondary strip and mobile drawer
   const editorialSections = [
     { id: 'facttrail', label: 'FactTrail — Storylines' },
     { id: 'latest-news', label: t.latestNews },
+    { id: 'ai-tools', label: 'AI Tools Directory' },
     { id: 'blogs', label: t.blogs },
     { id: 'quick-summaries', label: t.quickSummaries },
     { id: 'deep-explainers', label: t.deepExplainers },
@@ -107,10 +108,12 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'opinion-editorial', label: t.opinionEditorial },
     { id: 'fact-checks', label: t.factChecksNav },
     { id: 'guides-faqs', label: t.guidesFaqs },
+    { id: 'reviews', label: 'Reviews & Benchmarks' },
   ];
 
   // Secondary destinations exposed via the desktop "More" menu
   const moreSections = [
+    { id: 'ai-tools', label: 'AI Tools Directory' },
     { id: 'deep-explainers', label: t.deepExplainers },
     { id: 'quick-summaries', label: t.quickSummaries },
     { id: 'fact-checks', label: t.factChecksNav },
@@ -118,6 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
     { id: 'sports-analysis', label: t.sportsAnalysis },
     { id: 'opinion-editorial', label: t.opinionEditorial },
     { id: 'guides-faqs', label: t.guidesFaqs },
+    { id: 'reviews', label: 'Reviews & Benchmarks' },
   ];
 
   const [tickerIndex, setTickerIndex] = useState(0);
