@@ -35,3 +35,10 @@ server/data/
 .DS_Store
 Thumbs.db
 coverage/
+
+# Archive & Backup files
+*.zip
+*.tar.gz
+*.tgz
+*.bak
+

@@ -609,4 +609,115 @@ export interface ProductItem {
   enabled: boolean;
 }
 
+// ==========================================
+// IMPACT BRIEF — WHY THIS MATTERS INTERFACES
+// ==========================================
+
+export type ImpactBriefCategory =
+  | 'world'
+  | 'technology'
+  | 'science'
+  | 'health'
+  | 'business'
+  | 'sports'
+  | 'politics'
+  | 'guides';
+
+export type ImpactBriefRegion = 'global' | 'eu' | 'na' | 'asia' | 'me-africa' | 'latam';
+
+export interface ImpactBriefPreference {
+  categories: ImpactBriefCategory[];
+  region: ImpactBriefRegion;
+  language: string;
+  autoRefresh?: boolean;
+}
+
+export interface ImpactBriefDomainDetails {
+  science?: {
+    whatStudyFound: string;
+    whatItDidNotEstablish: string;
+    peerReviewed?: boolean;
+    primarySourceUrl?: string;
+  };
+  sports?: {
+    resultOrEvent: string;
+    tableOrFixtureImpact: string;
+    qualificationNote?: string;
+  };
+  techPolicy?: {
+    announcement: string;
+    affectedAudience: string;
+    effectiveDateOrTimeline?: string;
+    officialDocUrl?: string;
+  };
+  health?: {
+    clinicalContext: string;
+    cautionaryGuidance: string;
+    advisoryAuthority?: string;
+  };
+  worldEcon?: {
+    backgroundContext: string;
+    keyParties: string[];
+    unresolvedPoints: string[];
+  };
+}
+
+export interface ImpactBriefItem {
+  id: string;
+  storyId: string;
+  title: string;
+  category: ImpactBriefCategory;
+  region?: ImpactBriefRegion;
+  publishedAt: string;
+  imageUrl?: string;
+  imageAttribution?: string;
+  publisher: string;
+  url: string;
+  factTrailId?: string;
+  factTrailSlug?: string;
+  compareCoverageAvailable?: boolean;
+
+  // Update indicator for followed storylines
+  hasNewUpdate?: boolean;
+  newUpdateSummary?: string;
+  newUpdatePublisher?: string;
+  newUpdatePublishedAt?: string;
+
+  // The 5 Flagship Pillars
+  whatHappened: string;
+  whyItMatters: string;
+  whoIsAffected: string;
+  whatToCheckNext: string;
+  whatRemainsUncertain: string;
+
+  // Domain-Specific Grounding
+  templateType: 'science' | 'sports' | 'technology' | 'health' | 'world' | 'standard';
+  domainDetails?: ImpactBriefDomainDetails;
+
+  // Sourced Citations & Transparency
+  sources: {
+    publisher: string;
+    headline?: string;
+    url: string;
+    publishedAt?: string;
+    sourceType?: string;
+  }[];
+  transparency: {
+    isSingleSource?: boolean;
+    hasOfficialConfirmation?: boolean;
+    identifiedLimitations?: string[];
+    corroboratingSourcesCount?: number;
+  };
+}
+
+export interface FollowedStoryRecord {
+  storyId: string;
+  factTrailId?: string;
+  title: string;
+  followedAt: string;
+  lastVisitedAt: string;
+  lastKnownUpdateAt: string;
+}
+
+
 

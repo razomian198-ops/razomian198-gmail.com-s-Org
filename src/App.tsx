@@ -24,6 +24,7 @@ import { FactTrailSection } from './components/FactTrailSection.tsx';
 import { FactTrailView } from './components/FactTrailView.tsx';
 import { FactTrailDetailView } from './components/FactTrailDetailView.tsx';
 import { AiToolsDirectory } from './components/AiToolsDirectory.tsx';
+import { ImpactBriefSection } from './components/ImpactBriefSection.tsx';
 import { ConsentBanner } from './components/ConsentBanner.tsx';
 import {
   NewsItem,
@@ -102,6 +103,9 @@ export default function App() {
       setSelectedTrailId(params.get('story'));
       if (params.get('tool')) {
         setActiveCategory('ai-tools');
+      }
+      if (params.get('brief')) {
+        setActiveCategory('home');
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -493,7 +497,15 @@ export default function App() {
               currentLanguage={currentLanguage}
             />
 
-            {/* B. FactTrail Story Tracker Showcase — Follow the Story, Not Just the Headline */}
+            {/* B. Flagship Feature: Impact Brief — Why This Matters */}
+            <ImpactBriefSection
+              currentLanguage={currentLanguage}
+              onOpenFactTrail={handleOpenTrail}
+              onCompareCoverage={(story) => setSelectedCompareStory(story)}
+              onOpenArticle={(item) => setSelectedArticle(item)}
+            />
+
+            {/* C. FactTrail Story Tracker Showcase — Follow the Story, Not Just the Headline */}
             <FactTrailSection
               onOpenTrail={handleOpenTrail}
               onViewAllTrails={() => {

@@ -13,6 +13,7 @@ import { editorialStore } from './server/services/editorialStore.ts';
 import { editorialAiService } from './server/services/editorialAiService.ts';
 import { factTrailService } from './server/services/factTrailService.ts';
 import { compareCoverageService } from './server/services/compareCoverageService.ts';
+import { impactBriefService } from './server/services/impactBriefService.ts';
 
 import crypto from 'crypto';
 
@@ -273,6 +274,55 @@ ${publishedArticles
       res.json(items);
     } catch (err: any) {
       res.status(500).json({ error: 'Failed to retrieve breaking news', details: err.message });
+    }
+  });
+
+  // ==========================================
+  // IMPACT BRIEF — WHY THIS MATTERS ROUTES
+  // ==========================================
+  app.get('/api/impact-briefs', async (req: Request, res: Response) => {
+    try {
+      const categoriesParam = (req.query.categories as string) || '';
+      const categories = categoriesParam
+        ? (categoriesParam.split(',').map((c) => c.trim().toLowerCase()) as any)
+        : undefined;
+      const region = (req.query.region as any) || 'global';
+      const language = (req.query.language as string) || 'en';
+      const limit = parseInt((req.query.limit as string) || '5', 10);
+
+      let followedStories = undefined;
+      if (req.query.followed) {
+        try {
+          followedStories = JSON.parse(req.query.followed as string);
+        } catch {}
+      }
+
+      const result = await impactBriefService.getDailyImpactBriefs({
+        categories,
+        region,
+        language,
+        limit,
+        followedStories,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error('Impact Brief endpoint error:', err);
+      res.status(500).json({ error: 'Failed to generate Impact Briefs', details: err.message });
+    }
+  });
+
+  // Check updates for followed stories
+  app.post('/api/impact-briefs/check-updates', async (req: Request, res: Response) => {
+    try {
+      const followedStories = Array.isArray(req.body?.followed) ? req.body.followed : [];
+      const result = await impactBriefService.getDailyImpactBriefs({
+        followedStories,
+        limit: 8,
+      });
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to check followed story updates', details: err.message });
     }
   });
 
@@ -1731,16 +1781,6 @@ Sitemap: /sitemap.xml
     }
   });
 
-  // Downloadable Verified Project Archive for GitHub / Deployment Backup
-  app.get('/factinfolive-release-backup.zip', (_req: Request, res: Response) => {
-    const zipPath = path.resolve(__dirname, 'public/factinfolive-release-backup.zip');
-    if (fs.existsSync(zipPath)) {
-      res.download(zipPath, 'factinfolive-release-backup.zip');
-    } else {
-      res.status(404).send('Backup archive not found');
-    }
-  });
-
   // Return clean JSON 404 for unmatched API routes to prevent SPA HTML interception
   app.all(['/api', '/api/*'], (_req: Request, res: Response) => {
     res.status(404).json({ error: 'API endpoint not found' });
@@ -1750,6 +1790,11 @@ Sitemap: /sitemap.xml
   app.use('/api', (err: any, _req: Request, res: Response, _next: any) => {
     console.error('API Error handler:', err);
     res.status(500).json({ error: 'Internal API error', details: err?.message || 'Unknown error' });
+  });
+
+  // Block any requests for archives, env files, or database files
+  app.get(['*.zip', '*.tar.gz', '*.tar', '*.tgz', '*.bak', '*.sql', '*.db', '*.sqlite', '/.env*'], (_req: Request, res: Response) => {
+    res.status(404).type('text/plain').send('Not found');
   });
 
   // Vite middleware in dev or static files in prod
