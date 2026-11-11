@@ -9,6 +9,8 @@ import { Footer } from './components/Footer.tsx';
 import { FactTrailSection } from './components/FactTrailSection.tsx';
 import { ImpactBriefSection } from './components/ImpactBriefSection.tsx';
 import { ConsentBanner } from './components/ConsentBanner.tsx';
+import { LazyVisible } from './components/LazyVisible.tsx';
+import { TopicTiles } from './components/TopicTiles.tsx';
 import {
   NewsItem,
   SportsFixture,
@@ -562,40 +564,12 @@ export default function App() {
               currentLanguage={currentLanguage}
             />
 
-            {/* B. Flagship Feature: Impact Brief — Why This Matters */}
-            <ImpactBriefSection
-              currentLanguage={currentLanguage}
-              onOpenFactTrail={handleOpenTrail}
-              onCompareCoverage={(story) => setSelectedCompareStory(story)}
-              onOpenArticle={(item) => setSelectedArticle(item)}
-            />
-
-            {/* C. FactTrail Story Tracker Showcase — Follow the Story, Not Just the Headline */}
-            <FactTrailSection
-              onOpenTrail={handleOpenTrail}
-              onViewAllTrails={() => {
-                setActiveCategory('facttrail');
+            {/* Browse by topic */}
+            <TopicTiles
+              onSelectCategory={(id) => {
+                setSelectedBlogSlug(null);
+                setActiveCategory(id);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-
-            {/* C. Live Sports Center */}
-            <LiveSportsCenter
-              currentLanguage={currentLanguage}
-              fixtures={fixtures}
-              standings={standings}
-            />
-
-            {/* In-Article Contextual Ad Banner */}
-            <AdBanner slot="inArticle" />
-
-            {/* C. Compare Coverage — One story. Different sources. Original reporting. */}
-            <CompareCoveragePanel
-              currentLanguage={currentLanguage}
-              onOpenFactTrail={handleOpenTrail}
-              onOpenArticleDetail={(artId) => {
-                const found = news.find((n) => n.id === artId);
-                if (found) setSelectedArticle(found);
               }}
             />
 
@@ -610,66 +584,46 @@ export default function App() {
               onCompareCoverage={(item) => setSelectedCompareStory(item)}
             />
 
-            {/* E. Departmental Focus: Science & Space Highlights */}
-            <section className="bg-white dark:bg-slate-900 border border-stone-200 dark:border-slate-800 rounded-xl p-6 sm:p-8">
-              <div className="flex items-center justify-between pb-4 border-b border-stone-200 dark:border-slate-800 mb-6">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    Scientific Discovery Desk
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-bold font-editorial text-slate-950 dark:text-white mt-1">
-                    Astrophysics, Space &amp; Deep Tech Verification
-                  </h2>
-                </div>
-                <button
-                  onClick={() => setActiveCategory('deep-explainers')}
-                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  Explore Deep Explainers →
-                </button>
-              </div>
+            {/* Deeper features load only when scrolled near */}
+            <LazyVisible minHeight={320}>
+            <ImpactBriefSection
+              currentLanguage={currentLanguage}
+              onOpenFactTrail={handleOpenTrail}
+              onCompareCoverage={(story) => setSelectedCompareStory(story)}
+              onOpenArticle={(item) => setSelectedArticle(item)}
+            />
+            </LazyVisible>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                <div className="rounded-lg overflow-hidden aspect-video bg-stone-100 dark:bg-slate-950 relative">
-                  <img loading="lazy" decoding="async"
-                    src="/images/science_discovery_lab_1792529244932.jpg"
-                    alt="Science Discovery Telemetry"
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent p-3 text-[11px] text-stone-200">
-                    Observatory telemetry workspace · James Webb Space Telescope Analysis
-                  </div>
-                </div>
+            <LazyVisible minHeight={420}>
+            <LiveSportsCenter
+              currentLanguage={currentLanguage}
+              fixtures={fixtures}
+              standings={standings}
+            />
+            </LazyVisible>
 
-                <div className="space-y-3">
-                  <div className="text-xs text-slate-500 font-medium">NASA / ESA Astrophysical Database · Peer-Reviewed</div>
-                  <h3 className="text-lg sm:text-xl font-bold font-editorial text-slate-900 dark:text-white">
-                    Spectroscopic Telemetry Confirms Atmospheric Water Vapor Signatures on Sub-Neptune Exoplanet
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-sans">
-                    Astronomers cross-referencing NIRSpec data confirm distinct methane and water molecular absorption bands in the habitable zone. FactInfoLive verifies raw observational data directly against open astrophysics repositories.
-                  </p>
-                  <div className="pt-2 flex items-center gap-3">
-                    <button
-                      onClick={() => setSelectedBlogSlug('jwst-k2-18b-atmospheric-water-vapor-summary')}
-                      className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                    >
-                      Read Full Exoplanet Dossier →
-                    </button>
-                    <button
-                      onClick={() => {
-                        const sciStory = news.find((n) => n.category === 'science') || leadStory;
-                        if (sciStory) setSelectedSummaryStory(sciStory);
-                      }}
-                      className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
-                    >
-                      30s Intelligence Summary
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
+            <LazyVisible minHeight={320}>
+            <FactTrailSection
+              onOpenTrail={handleOpenTrail}
+              onViewAllTrails={() => {
+                setActiveCategory('facttrail');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+            </LazyVisible>
+
+            <AdBanner slot="inArticle" />
+
+            <LazyVisible minHeight={320}>
+            <CompareCoveragePanel
+              currentLanguage={currentLanguage}
+              onOpenFactTrail={handleOpenTrail}
+              onOpenArticleDetail={(artId) => {
+                const found = news.find((n) => n.id === artId);
+                if (found) setSelectedArticle(found);
+              }}
+            />
+            </LazyVisible>
           </>
         )}
         </Suspense>
