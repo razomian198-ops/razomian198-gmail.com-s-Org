@@ -198,9 +198,7 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 sm:gap-2.5 text-left group cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md"
             aria-label="FactInfoLive Home"
           >
-            <div className="w-7 h-7 sm:w-8 h-8 rounded-md bg-blue-600 dark:bg-blue-500 text-white flex items-center justify-center font-bold text-base sm:text-lg shadow-sm shrink-0 transition-transform group-hover:scale-105">
-              F
-            </div>
+            <img src="/logo.svg" alt="" width={32} height={32} className="w-7 h-7 sm:w-8 sm:h-8 rounded-md shrink-0 transition-transform group-hover:scale-105" />
             <span className="text-lg sm:text-2xl font-bold tracking-tight text-slate-950 dark:text-white font-editorial whitespace-nowrap">
               FactInfo<span className="text-blue-600 dark:text-blue-400">Live</span>
             </span>
