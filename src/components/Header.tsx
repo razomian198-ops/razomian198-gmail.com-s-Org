@@ -10,7 +10,6 @@ import {
   ChevronDown,
   Menu,
   X,
-  Lock,
   BookOpen,
   Sparkles,
   FileText,
@@ -319,17 +318,6 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Secure Admin Dashboard Route Button */}
-          <button
-            type="button"
-            onClick={onOpenAdminDashboard}
-            className="h-9 hidden md:inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold text-slate-700 dark:text-slate-300 bg-stone-100 dark:bg-slate-900 hover:bg-blue-50 dark:hover:bg-blue-950/60 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-colors cursor-pointer shrink-0"
-            title="Secure Admin Dashboard (/admin)"
-          >
-            <Lock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span className="hidden xl:inline">Admin</span>
-          </button>
-
           {/* Sources Transparency Indicator */}
           <button
             type="button"
@@ -561,17 +549,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           <div className="pt-2 border-t border-stone-200 dark:border-slate-800 flex justify-between items-center text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                onOpenAdminDashboard();
-                setIsMobileMenuOpen(false);
-              }}
-              className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-semibold cursor-pointer"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>Admin Dashboard (/admin)</span>
-            </button>
+            <span />
             <button
               type="button"
               onClick={() => {
