@@ -191,6 +191,11 @@ Sitemap: ${baseUrl}/sitemap.xml
 `);
   });
 
+  // Public site settings (contact email is set in the host's environment variables, never in code)
+  app.get('/api/site-info', (_req: Request, res: Response) => {
+    res.json({ contactEmail: process.env.CONTACT_EMAIL?.trim() || null });
+  });
+
   // AI-readable site summary and RSS feed of original articles
   app.get('/llms.txt', (req: Request, res: Response) => {
     const { items } = editorialStore.getArticles({ status: 'published', limit: 50 });

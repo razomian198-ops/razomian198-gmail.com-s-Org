@@ -48,6 +48,7 @@ const CompareCoverageModal = lazy(() => import('./components/CompareCoverageModa
 const ArticleModal = lazy(() => import('./components/ArticleModal.tsx').then((m) => ({ default: m.ArticleModal })));
 const SearchModal = lazy(() => import('./components/SearchModal.tsx').then((m) => ({ default: m.SearchModal })));
 const ProviderStatusModal = lazy(() => import('./components/ProviderStatusModal.tsx').then((m) => ({ default: m.ProviderStatusModal })));
+const ContactView = lazy(() => import('./components/ContactView.tsx').then((m) => ({ default: m.ContactView })));
 const EditorialPolicyView = lazy(() => import('./components/EditorialPolicyView.tsx').then((m) => ({ default: m.EditorialPolicyView })));
 const CategoryView = lazy(() => import('./components/CategoryView.tsx').then((m) => ({ default: m.CategoryView })));
 const AllTopicsModal = lazy(() => import('./components/AllTopicsModal.tsx').then((m) => ({ default: m.AllTopicsModal })));
@@ -534,6 +535,8 @@ export default function App() {
               });
             }}
           />
+        ) : activeCategory === 'contact' ? (
+          <ContactView onBackToHome={() => setActiveCategory('home')} />
         ) : activeCategory === 'about' ? (
           /* Editorial Policy & Standards View */
           <EditorialPolicyView
