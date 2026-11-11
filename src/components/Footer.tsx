@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Heart, ExternalLink, Lock } from 'lucide-react';
+import { ShieldCheck, Heart, ExternalLink } from 'lucide-react';
 import { SupportedLanguage } from '../i18n/translations.ts';
 
 interface FooterProps {
@@ -157,17 +157,7 @@ export const Footer: React.FC<FooterProps> = ({
                   Editorial Independence Policy
                 </button>
               </li>
-              {onOpenAdminDashboard && (
-                <li>
-                  <button
-                    onClick={onOpenAdminDashboard}
-                    className="text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Lock className="w-3 h-3" />
-                    <span>Admin Dashboard (/admin)</span>
-                  </button>
-                </li>
-              )}
+              {/* The admin dashboard is deliberately not linked publicly; editors open /admin directly. */}
               {onOpenSponsorshipModal && (
                 <li>
                   <button

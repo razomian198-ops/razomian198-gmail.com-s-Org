@@ -35,6 +35,16 @@ import {
 import { SupportedLanguage } from './i18n/translations.ts';
 import { Loader2 } from 'lucide-react';
 import { safeFetchJson } from './utils/api.ts';
+import { applyPageMeta } from './utils/pageMeta.ts';
+import {
+  HOME_ROUTE,
+  routeForPath,
+  routeForId,
+  pathForCategoryId,
+  articleSlugFromPath,
+  isAdminPath,
+  normalizePath,
+} from './data/routes.ts';
 
 const EDITORIAL_SECTIONS = [
   'latest-news',
@@ -51,7 +61,13 @@ const EDITORIAL_SECTIONS = [
 export default function App() {
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
-  const [activeCategory, setActiveCategory] = useState<string>('home');
+  // The URL is the source of truth for which section is open (e.g. /ai-tools, /blogs)
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return routeForPath(window.location.pathname)?.id || 'home';
+    }
+    return 'home';
+  });
   const [news, setNews] = useState<NewsItem[]>([]);
   const [breakingNews, setBreakingNews] = useState<NewsItem[]>([]);
   const [fixtures, setFixtures] = useState<SportsFixture[]>([]);
@@ -70,7 +86,12 @@ export default function App() {
   });
 
   // Editorial & CMS state
-  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(null);
+  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return articleSlugFromPath(window.location.pathname);
+    }
+    return null;
+  });
   const [activeBlogArticle, setActiveBlogArticle] = useState<EditorialArticle | null>(null);
   const [loadingBlogArticle, setLoadingBlogArticle] = useState(false);
   const [relatedBlogArticles, setRelatedBlogArticles] = useState<EditorialArticle[]>([]);
@@ -101,6 +122,12 @@ export default function App() {
       setIsAdminRoute(window.location.pathname.startsWith('/admin'));
       const params = new URLSearchParams(window.location.search);
       setSelectedTrailId(params.get('story'));
+      // Keep the open section / article in step with the address bar (back/forward buttons)
+      const slugFromUrl = articleSlugFromPath(window.location.pathname);
+      setSelectedBlogSlug(slugFromUrl);
+      if (!slugFromUrl) {
+        setActiveCategory(routeForPath(window.location.pathname)?.id || 'home');
+      }
       if (params.get('tool')) {
         setActiveCategory('ai-tools');
       }
@@ -111,6 +138,27 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Give every section its own URL, <title> and description (the server does the same for crawlers)
+  const isFirstUrlSync = React.useRef(true);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const current = normalizePath(window.location.pathname);
+    if (isAdminPath(current) || articleSlugFromPath(current)) return;
+
+    // First render: never rewrite the address (an unknown URL must stay as typed, the
+    // server already answered it with a 404 status).
+    if (isFirstUrlSync.current) {
+      isFirstUrlSync.current = false;
+      if (!routeForPath(current)) return;
+    }
+
+    const route = routeForId(activeCategory) || HOME_ROUTE;
+    if (routeForPath(current)?.id !== route.id) {
+      window.history.pushState({}, '', route.path);
+    }
+    applyPageMeta(route.title, route.description, route.path);
+  }, [activeCategory]);
 
   const handleOpenTrail = (trailId: string) => {
     setSelectedTrailId(trailId);
@@ -360,12 +408,14 @@ export default function App() {
         onSelectCategory={(cat) => {
           setSelectedBlogSlug(null);
           setSelectedTrailId(null);
-          const url = new URL(window.location.href);
-          url.searchParams.delete('story');
-          window.history.pushState({}, '', url.pathname + (url.search || ''));
           if (cat === 'all-topics') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('story');
+            window.history.replaceState({}, '', url.pathname + (url.search || ''));
             setIsAllTopicsOpen(true);
           } else {
+            // Navigate to the section's own URL (also leaves /article/... and clears ?story=)
+            window.history.pushState({}, '', pathForCategoryId(cat));
             setActiveCategory(cat);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }

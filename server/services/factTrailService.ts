@@ -37,7 +37,17 @@ interface ExtractedFeatures {
   entities: Set<string>;
   headlineEntities: Set<string>;
   keyTerms: Set<string>;
+  headlineKeyTerms: Set<string>;
   numbers: Set<string>;
+}
+
+// Years and tiny integers appear in unrelated stories all the time, so they are
+// never evidence that two articles describe the same event.
+function isSignificantNumber(token: string): boolean {
+  if (!/^\d+(\.\d+)?%?$/.test(token)) return false;
+  if (/^(19|20)\d{2}$/.test(token)) return false;
+  const value = parseFloat(token);
+  return Number.isFinite(value) && value >= 10;
 }
 
 export class FactTrailService {
@@ -52,6 +62,7 @@ export class FactTrailService {
     const headlineEntities = new Set<string>();
     const entities = new Set<string>();
     const keyTerms = new Set<string>();
+    const headlineKeyTerms = new Set<string>();
     const numbers = new Set<string>();
 
     for (const raw of rawHeadlineTokens) {
@@ -59,8 +70,8 @@ export class FactTrailService {
       if (!clean) continue;
       const lower = clean.toLowerCase();
 
-      // Numbers or stats (e.g., 160000, 10, 2026)
-      if (/^\d+(\.\d+)?%?$/.test(clean)) {
+      // Numbers or stats (e.g., 160000, 250), ignoring years and tiny integers
+      if (isSignificantNumber(clean)) {
         numbers.add(clean);
       }
 
@@ -71,6 +82,7 @@ export class FactTrailService {
       }
       if (clean.length >= 3 && !GENERIC_WORDS.has(lower)) {
         keyTerms.add(lower);
+        headlineKeyTerms.add(lower);
       }
     }
 
@@ -79,7 +91,7 @@ export class FactTrailService {
       if (!clean) continue;
       const lower = clean.toLowerCase();
 
-      if (/^\d+(\.\d+)?%?$/.test(clean)) {
+      if (isSignificantNumber(clean)) {
         numbers.add(clean);
       }
 
@@ -91,11 +103,11 @@ export class FactTrailService {
       }
     }
 
-    return { entities, headlineEntities, keyTerms, numbers };
+    return { entities, headlineEntities, keyTerms, headlineKeyTerms, numbers };
   }
 
   // Determines whether two articles report on the exact same core event
-  private isRelated(a: NewsItem, b: NewsItem): boolean {
+  isRelated(a: NewsItem, b: NewsItem): boolean {
     // 1. Time window constraint: events must be within 72 hours
     const hoursDiff = Math.abs(new Date(a.publishedAt).getTime() - new Date(b.publishedAt).getTime()) / (1000 * 3600);
     if (hoursDiff > 72) return false;
@@ -132,20 +144,31 @@ export class FactTrailService {
       }
     }
 
+    // Headline gate: two articles about the same event must share at least 2
+    // distinctive words in their HEADLINES. Matching only on summary text used to
+    // merge unrelated stories (e.g. an Nvidia probe with a US House leadership vote).
+    let headlineOverlap = 0;
+    for (const kt of fA.headlineKeyTerms) {
+      if (fB.headlineKeyTerms.has(kt)) headlineOverlap++;
+    }
+    if (headlineOverlap < 2) return false;
+
+    const sharedNumber = Array.from(fA.numbers).some(n => fB.numbers.has(n));
+
     // High confidence clustering rules:
-    // Rule A: Both headlines share at least 1 specific proper noun (e.g. Boelo, Machado, Carrick, Vucic, Stansted)
-    // AND share at least 2 key terms or numbers
-    if (matchingHeadlineEntities.length >= 1 && (matchingKeyTerms >= 2 || (fA.numbers.size > 0 && Array.from(fA.numbers).some(n => fB.numbers.has(n))))) {
+    // Rule A: Headlines share a specific proper noun AND at least 3 key terms
+    // (or a significant number plus 2 key terms)
+    if (matchingHeadlineEntities.length >= 1 && (matchingKeyTerms >= 3 || (sharedNumber && matchingKeyTerms >= 2))) {
       return true;
     }
 
-    // Rule B: Share 2+ proper entities across headline/summary AND at least 3 key terms
-    if (matchingEntities.length >= 2 && matchingKeyTerms >= 3) {
+    // Rule B: Share 2+ proper entities across headline/summary AND at least 4 key terms
+    if (matchingEntities.length >= 2 && matchingKeyTerms >= 4) {
       return true;
     }
 
-    // Rule C: Very high lexical term overlap in title (>= 4 distinctive words)
-    if (matchingKeyTerms >= 4) {
+    // Rule C: Very high lexical term overlap (>= 5 distinctive words)
+    if (matchingKeyTerms >= 5) {
       return true;
     }
 
