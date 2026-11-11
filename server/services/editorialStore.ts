@@ -428,7 +428,10 @@ export const INITIAL_AI_TOOL_REVIEWS: AiToolReview[] = [
 // Production: Product Catalog starts empty until genuine products are configured
 export const INITIAL_PRODUCTS: ProductItem[] = [];
 
+import { BATCH_1_ARTICLES } from './seedArticlesBatch1.ts';
+
 const SEED_ARTICLES: EditorialArticle[] = [
+  ...BATCH_1_ARTICLES,
   // 1. Deep Explainer: Ocean Heat Content
   {
     id: 'art-explainer-1',
