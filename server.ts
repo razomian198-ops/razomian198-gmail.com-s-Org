@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import compression from 'compression';
 import fs from 'fs';
 import { ROUTES, HOME_ROUTE, routeForPath, articleSlugFromPath, isAdminPath, normalizePath } from './src/data/routes.ts';
 import path from 'path';
@@ -71,6 +72,23 @@ async function startServer() {
 
   // Configure Express proxy trust for Render, Cloudflare, and cloud web services
   app.set('trust proxy', 1);
+
+  // Gzip/deflate text responses (HTML, JS, CSS, JSON) - big win on mobile connections
+  app.use(compression());
+
+  // Short shared caching for public, read-only news/sports data so repeat visits and
+  // CDN/browser caches do not hit the upstream providers every time. Stale copies may
+  // be served for a short while while a fresh one is fetched.
+  app.use((req: Request, res: Response, next: () => void) => {
+    if (
+      req.method === 'GET' &&
+      /^\/api\/(news|sports)(\/|$)/.test(req.path) &&
+      !req.path.startsWith('/api/sports/provider-status')
+    ) {
+      res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    }
+    next();
+  });
 
   // Security Headers
   app.use((_req: Request, res: Response, next: () => void) => {
@@ -1782,7 +1800,19 @@ Sitemap: /sitemap.xml
     app.use(vite.middlewares);
   } else {
     const distDir = path.resolve(__dirname, 'dist');
-    app.use(express.static(distDir, { index: false }));
+    app.use(
+      express.static(distDir, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            // Vite fingerprints these files, so they can be cached for a year.
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else if (/\.(png|jpe?g|webp|svg|ico|woff2?)$/i.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+          }
+        },
+      })
+    );
 
     const escapeAttr = (v: string) =>
       v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1863,6 +1893,7 @@ Sitemap: /sitemap.xml
           }\n  </head>`
         );
 
+      res.setHeader('Cache-Control', 'no-cache');
       res.status(status).type('html').send(html);
     });
   }
