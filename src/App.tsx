@@ -1,29 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { LeadStory } from './components/LeadStory.tsx';
 import { LiveSportsCenter } from './components/LiveSportsCenter.tsx';
 import { NewsGrid } from './components/NewsGrid.tsx';
 import { CompareCoveragePanel } from './components/CompareCoveragePanel.tsx';
-import { CompareCoverageModal } from './components/CompareCoverageModal.tsx';
-import { ArticleModal } from './components/ArticleModal.tsx';
-import { SearchModal } from './components/SearchModal.tsx';
-import { ProviderStatusModal } from './components/ProviderStatusModal.tsx';
-import { EditorialPolicyView } from './components/EditorialPolicyView.tsx';
-import { CategoryView } from './components/CategoryView.tsx';
-import { AllTopicsModal } from './components/AllTopicsModal.tsx';
-import { EditorialSectionView } from './components/EditorialSectionView.tsx';
-import { BlogDetailView } from './components/BlogDetailView.tsx';
-import { StructuredSummaryModal } from './components/StructuredSummaryModal.tsx';
-import { EditorialAdminModal } from './components/EditorialAdminModal.tsx';
-import { AdminDashboard } from './components/AdminDashboard.tsx';
-import { SupporterModal } from './components/SupporterModal.tsx';
-import { SponsorshipModal } from './components/SponsorshipModal.tsx';
 import { AdBanner } from './components/AdBanner.tsx';
 import { Footer } from './components/Footer.tsx';
 import { FactTrailSection } from './components/FactTrailSection.tsx';
-import { FactTrailView } from './components/FactTrailView.tsx';
-import { FactTrailDetailView } from './components/FactTrailDetailView.tsx';
-import { AiToolsDirectory } from './components/AiToolsDirectory.tsx';
 import { ImpactBriefSection } from './components/ImpactBriefSection.tsx';
 import { ConsentBanner } from './components/ConsentBanner.tsx';
 import {
@@ -35,6 +18,16 @@ import {
 import { SupportedLanguage } from './i18n/translations.ts';
 import { Loader2 } from 'lucide-react';
 import { safeFetchJson } from './utils/api.ts';
+import { applyPageMeta } from './utils/pageMeta.ts';
+import {
+  HOME_ROUTE,
+  routeForPath,
+  routeForId,
+  pathForCategoryId,
+  articleSlugFromPath,
+  isAdminPath,
+  normalizePath,
+} from './data/routes.ts';
 
 const EDITORIAL_SECTIONS = [
   'latest-news',
@@ -48,10 +41,45 @@ const EDITORIAL_SECTIONS = [
   'guides-faqs',
 ];
 
+// Heavy views and modals are split into separate chunks and fetched on demand.
+const CompareCoverageModal = lazy(() => import('./components/CompareCoverageModal.tsx').then((m) => ({ default: m.CompareCoverageModal })));
+const ArticleModal = lazy(() => import('./components/ArticleModal.tsx').then((m) => ({ default: m.ArticleModal })));
+const SearchModal = lazy(() => import('./components/SearchModal.tsx').then((m) => ({ default: m.SearchModal })));
+const ProviderStatusModal = lazy(() => import('./components/ProviderStatusModal.tsx').then((m) => ({ default: m.ProviderStatusModal })));
+const EditorialPolicyView = lazy(() => import('./components/EditorialPolicyView.tsx').then((m) => ({ default: m.EditorialPolicyView })));
+const CategoryView = lazy(() => import('./components/CategoryView.tsx').then((m) => ({ default: m.CategoryView })));
+const AllTopicsModal = lazy(() => import('./components/AllTopicsModal.tsx').then((m) => ({ default: m.AllTopicsModal })));
+const EditorialSectionView = lazy(() => import('./components/EditorialSectionView.tsx').then((m) => ({ default: m.EditorialSectionView })));
+const BlogDetailView = lazy(() => import('./components/BlogDetailView.tsx').then((m) => ({ default: m.BlogDetailView })));
+const StructuredSummaryModal = lazy(() => import('./components/StructuredSummaryModal.tsx').then((m) => ({ default: m.StructuredSummaryModal })));
+const EditorialAdminModal = lazy(() => import('./components/EditorialAdminModal.tsx').then((m) => ({ default: m.EditorialAdminModal })));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard.tsx').then((m) => ({ default: m.AdminDashboard })));
+const SupporterModal = lazy(() => import('./components/SupporterModal.tsx').then((m) => ({ default: m.SupporterModal })));
+const SponsorshipModal = lazy(() => import('./components/SponsorshipModal.tsx').then((m) => ({ default: m.SponsorshipModal })));
+const FactTrailView = lazy(() => import('./components/FactTrailView.tsx').then((m) => ({ default: m.FactTrailView })));
+const FactTrailDetailView = lazy(() => import('./components/FactTrailDetailView.tsx').then((m) => ({ default: m.FactTrailDetailView })));
+const AiToolsDirectory = lazy(() => import('./components/AiToolsDirectory.tsx').then((m) => ({ default: m.AiToolsDirectory })));
+
+/** Mounts children the first time `when` is true and keeps them mounted afterwards (so exit animations still work). */
+function MountOnDemand({ when, children }: { when: boolean; children: React.ReactNode }) {
+  const [seen, setSeen] = useState(when);
+  useEffect(() => {
+    if (when) setSeen(true);
+  }, [when]);
+  if (!when && !seen) return null;
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
+
 export default function App() {
   const [currentLanguage, setCurrentLanguage] = useState<SupportedLanguage>('en');
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
-  const [activeCategory, setActiveCategory] = useState<string>('home');
+  // The URL is the source of truth for which section is open (e.g. /ai-tools, /blogs)
+  const [activeCategory, setActiveCategory] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return routeForPath(window.location.pathname)?.id || 'home';
+    }
+    return 'home';
+  });
   const [news, setNews] = useState<NewsItem[]>([]);
   const [breakingNews, setBreakingNews] = useState<NewsItem[]>([]);
   const [fixtures, setFixtures] = useState<SportsFixture[]>([]);
@@ -70,7 +98,12 @@ export default function App() {
   });
 
   // Editorial & CMS state
-  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(null);
+  const [selectedBlogSlug, setSelectedBlogSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return articleSlugFromPath(window.location.pathname);
+    }
+    return null;
+  });
   const [activeBlogArticle, setActiveBlogArticle] = useState<EditorialArticle | null>(null);
   const [loadingBlogArticle, setLoadingBlogArticle] = useState(false);
   const [relatedBlogArticles, setRelatedBlogArticles] = useState<EditorialArticle[]>([]);
@@ -101,6 +134,12 @@ export default function App() {
       setIsAdminRoute(window.location.pathname.startsWith('/admin'));
       const params = new URLSearchParams(window.location.search);
       setSelectedTrailId(params.get('story'));
+      // Keep the open section / article in step with the address bar (back/forward buttons)
+      const slugFromUrl = articleSlugFromPath(window.location.pathname);
+      setSelectedBlogSlug(slugFromUrl);
+      if (!slugFromUrl) {
+        setActiveCategory(routeForPath(window.location.pathname)?.id || 'home');
+      }
       if (params.get('tool')) {
         setActiveCategory('ai-tools');
       }
@@ -111,6 +150,27 @@ export default function App() {
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Give every section its own URL, <title> and description (the server does the same for crawlers)
+  const isFirstUrlSync = React.useRef(true);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const current = normalizePath(window.location.pathname);
+    if (isAdminPath(current) || articleSlugFromPath(current)) return;
+
+    // First render: never rewrite the address (an unknown URL must stay as typed, the
+    // server already answered it with a 404 status).
+    if (isFirstUrlSync.current) {
+      isFirstUrlSync.current = false;
+      if (!routeForPath(current)) return;
+    }
+
+    const route = routeForId(activeCategory) || HOME_ROUTE;
+    if (routeForPath(current)?.id !== route.id) {
+      window.history.pushState({}, '', route.path);
+    }
+    applyPageMeta(route.title, route.description, route.path);
+  }, [activeCategory]);
 
   const handleOpenTrail = (trailId: string) => {
     setSelectedTrailId(trailId);
@@ -322,6 +382,7 @@ export default function App() {
   if (isAdminRoute) {
     return (
       <div className="min-h-screen bg-stone-50 dark:bg-slate-950 text-slate-900 dark:text-stone-100 flex flex-col font-sans transition-colors duration-200 w-full max-w-full min-w-0">
+        <Suspense fallback={<div className="flex items-center justify-center py-32 text-blue-600"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
         <AdminDashboard
           currentLanguage={currentLanguage}
           onBackToHome={() => {
@@ -337,6 +398,7 @@ export default function App() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
+        </Suspense>
       </div>
     );
   }
@@ -360,12 +422,14 @@ export default function App() {
         onSelectCategory={(cat) => {
           setSelectedBlogSlug(null);
           setSelectedTrailId(null);
-          const url = new URL(window.location.href);
-          url.searchParams.delete('story');
-          window.history.pushState({}, '', url.pathname + (url.search || ''));
           if (cat === 'all-topics') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('story');
+            window.history.replaceState({}, '', url.pathname + (url.search || ''));
             setIsAllTopicsOpen(true);
           } else {
+            // Navigate to the section's own URL (also leaves /article/... and clears ?story=)
+            window.history.pushState({}, '', pathForCategoryId(cat));
             setActiveCategory(cat);
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }
@@ -387,6 +451,7 @@ export default function App() {
         {/* Ethical Ad Banner: Header Billboard (Renders only if enabled by admin in Revenue settings) */}
         <AdBanner slot="headerBillboard" className="w-full" />
 
+        <Suspense fallback={<div className="flex items-center justify-center py-24 text-blue-600"><Loader2 className="w-8 h-8 animate-spin" /></div>}>
         {selectedBlogSlug ? (
           /* View Individual Blog / Deep Explainer / Research Article */
           loadingBlogArticle ? (
@@ -566,7 +631,7 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div className="rounded-lg overflow-hidden aspect-video bg-stone-100 dark:bg-slate-950 relative">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src="/images/science_discovery_lab_1792529244932.jpg"
                     alt="Science Discovery Telemetry"
                     className="w-full h-full object-cover"
@@ -607,6 +672,7 @@ export default function App() {
             </section>
           </>
         )}
+        </Suspense>
       </main>
 
       {/* Broadsheet Footer */}
@@ -628,6 +694,7 @@ export default function App() {
       />
 
       {/* Modals */}
+      <MountOnDemand when={!!selectedArticle}>
       <ArticleModal
         currentLanguage={currentLanguage}
         article={selectedArticle}
@@ -635,20 +702,26 @@ export default function App() {
         onOpenFactTrail={handleOpenTrail}
         onCompareCoverage={(story) => setSelectedCompareStory(story)}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={!!selectedCompareStory}>
       <CompareCoverageModal
         currentLanguage={currentLanguage}
         article={selectedCompareStory}
         onClose={() => setSelectedCompareStory(null)}
         onOpenFactTrail={handleOpenTrail}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={!!selectedSummaryStory}>
       <StructuredSummaryModal
         currentLanguage={currentLanguage}
         story={selectedSummaryStory}
         onClose={() => setSelectedSummaryStory(null)}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isSearchOpen}>
       <SearchModal
         currentLanguage={currentLanguage}
         isOpen={isSearchOpen}
@@ -669,13 +742,17 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isStatusModalOpen}>
       <ProviderStatusModal
         currentLanguage={currentLanguage}
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isAllTopicsOpen}>
       <AllTopicsModal
         currentLanguage={currentLanguage}
         isOpen={isAllTopicsOpen}
@@ -686,7 +763,9 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isAdminModalOpen}>
       <EditorialAdminModal
         currentLanguage={currentLanguage}
         isOpen={isAdminModalOpen}
@@ -695,18 +774,23 @@ export default function App() {
           setSelectedBlogSlug(art.slug);
         }}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isSupporterModalOpen}>
       <SupporterModal
         currentLanguage={currentLanguage}
         isOpen={isSupporterModalOpen}
         onClose={() => setIsSupporterModalOpen(false)}
       />
+      </MountOnDemand>
 
+      <MountOnDemand when={isSponsorshipModalOpen}>
       <SponsorshipModal
         currentLanguage={currentLanguage}
         isOpen={isSponsorshipModalOpen}
         onClose={() => setIsSponsorshipModalOpen(false)}
       />
+      </MountOnDemand>
 
       {/* GDPR / ePrivacy Cookie & Privacy Consent Banner */}
       <ConsentBanner />

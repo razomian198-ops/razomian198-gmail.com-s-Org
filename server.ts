@@ -1,5 +1,7 @@
 import express, { Request, Response } from 'express';
+import compression from 'compression';
 import fs from 'fs';
+import { ROUTES, HOME_ROUTE, routeForPath, articleSlugFromPath, isAdminPath, normalizePath } from './src/data/routes.ts';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
@@ -70,6 +72,23 @@ async function startServer() {
 
   // Configure Express proxy trust for Render, Cloudflare, and cloud web services
   app.set('trust proxy', 1);
+
+  // Gzip/deflate text responses (HTML, JS, CSS, JSON) - big win on mobile connections
+  app.use(compression());
+
+  // Short shared caching for public, read-only news/sports data so repeat visits and
+  // CDN/browser caches do not hit the upstream providers every time. Stale copies may
+  // be served for a short while while a fresh one is fetched.
+  app.use((req: Request, res: Response, next: () => void) => {
+    if (
+      req.method === 'GET' &&
+      /^\/api\/(news|sports)(\/|$)/.test(req.path) &&
+      !req.path.startsWith('/api/sports/provider-status')
+    ) {
+      res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
+    }
+    next();
+  });
 
   // Security Headers
   app.use((_req: Request, res: Response, next: () => void) => {
@@ -172,36 +191,8 @@ Sitemap: ${baseUrl}/sitemap.xml
   app.get('/sitemap.xml', async (req: Request, res: Response) => {
     res.type('application/xml');
     const baseUrl = getBaseUrl(req);
-    const categories = [
-      '',
-      'latest-news',
-      'blogs',
-      'quick-summaries',
-      'deep-explainers',
-      'research-studies',
-      'sports-analysis',
-      'opinion-editorial',
-      'fact-checks',
-      'guides-faqs',
-      'breaking-news',
-      'world',
-      'politics-government',
-      'elections-public-policy',
-      'business-economy',
-      'finance-markets',
-      'technology-ai',
-      'science-space',
-      'health-medicine',
-      'environment-climate',
-      'live-sports',
-      'football',
-      'cricket',
-      'basketball',
-      'tennis',
-      'formula-1',
-      'trending',
-      'about-editorial-policy',
-    ];
+    // Every public section comes from the shared route table, so the sitemap only lists URLs that really exist
+    const categories = ['', ...ROUTES.map((r) => r.path.slice(1))];
 
     const { items: publishedArticles } = editorialStore.getArticles({ status: 'published', limit: 200 });
 
@@ -1808,9 +1799,102 @@ Sitemap: /sitemap.xml
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (_req: Request, res: Response) => {
-      res.sendFile(path.resolve(__dirname, 'dist/index.html'));
+    const distDir = path.resolve(__dirname, 'dist');
+    app.use(
+      express.static(distDir, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            // Vite fingerprints these files, so they can be cached for a year.
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else if (/\.(png|jpe?g|webp|svg|ico|woff2?)$/i.test(filePath)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+          }
+        },
+      })
+    );
+
+    const escapeAttr = (v: string) =>
+      v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Every page gets its own <title>, description and canonical in the first HTML response,
+    // and unknown URLs answer with a real 404 instead of silently showing the home page.
+    app.get('*', (req: Request, res: Response) => {
+      // A missing file (image, js, map...) is a plain 404, never the app shell
+      if (/\.[a-z0-9]{1,6}$/i.test(req.path)) {
+        return res.status(404).type('text/plain').send('Not found');
+      }
+
+      let html: string;
+      try {
+        html = fs.readFileSync(path.join(distDir, 'index.html'), 'utf-8');
+      } catch {
+        return res.status(500).type('text/plain').send('Build output missing. Run "npm run build".');
+      }
+
+      const baseUrl = getBaseUrl(req);
+      const pathname = normalizePath(req.path);
+      let status = 200;
+      let title = HOME_ROUTE.title;
+      let description = HOME_ROUTE.description;
+      let canonicalPath = '/';
+      let noindex = false;
+
+      const slug = articleSlugFromPath(pathname);
+      const route = routeForPath(pathname);
+      if (isAdminPath(pathname)) {
+        title = 'Admin | FactInfoLive';
+        description = 'FactInfoLive administration.';
+        canonicalPath = '/admin';
+        noindex = true;
+      } else if (slug) {
+        const art = editorialStore.getArticleBySlug(slug);
+        if (art && art.status === 'published') {
+          title = `${art.title} | FactInfoLive`;
+          description = String(art.subtitle || art.title).slice(0, 200);
+          canonicalPath = `/article/${art.slug}`;
+        } else {
+          status = 404;
+          title = 'Article not found | FactInfoLive';
+          description = 'This article does not exist or is no longer published.';
+          noindex = true;
+        }
+      } else if (route) {
+        title = route.title;
+        description = route.description;
+        canonicalPath = route.path;
+      } else if (pathname !== '/') {
+        status = 404;
+        title = 'Page not found | FactInfoLive';
+        description = 'This page does not exist. Return to the FactInfoLive front page.';
+        noindex = true;
+      }
+
+      const t = escapeAttr(title);
+      const d = escapeAttr(description);
+      const canonicalUrl = `${baseUrl}${canonicalPath === '/' ? '' : canonicalPath}`;
+      // og:image needs an absolute URL; /og-preview.png was never shipped, so use a real image
+      const ogImage = `${baseUrl}/images/hero_editorial_world_1792529244145.jpg`;
+
+      html = html
+        .replace(/<title>[\s\S]*?<\/title>/, `<title>${t}</title>`)
+        .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${d}" />`)
+        .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${t}" />`)
+        .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${d}" />`)
+        .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${escapeAttr(ogImage)}" />`)
+        .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${t}" />`)
+        .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${d}" />`)
+        // The structured data used to point at factinfolive.org instead of the real domain
+        .replace(/https:\/\/factinfolive\.org/g, baseUrl)
+        .replace(
+          '</head>',
+          `<link rel="canonical" href="${escapeAttr(canonicalUrl)}" />\n    <meta property="og:url" content="${escapeAttr(canonicalUrl)}" />${
+            noindex ? '\n    <meta name="robots" content="noindex, nofollow" />' : ''
+          }\n  </head>`
+        );
+
+      res.setHeader('Cache-Control', 'no-cache');
+      res.status(status).type('html').send(html);
     });
   }
 

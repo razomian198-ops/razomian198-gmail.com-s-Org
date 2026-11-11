@@ -217,7 +217,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
           {/* Article Image if present */}
           {article.imageUrl && (
             <div className="rounded-xl overflow-hidden aspect-video relative bg-stone-100 dark:bg-slate-950">
-              <img
+              <img loading="lazy" decoding="async"
                 src={article.imageUrl}
                 alt={article.title}
                 className="w-full h-full object-cover"

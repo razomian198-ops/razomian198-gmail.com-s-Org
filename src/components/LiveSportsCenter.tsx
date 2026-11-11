@@ -603,7 +603,7 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5 font-medium text-slate-900 dark:text-stone-100 text-sm">
                           {fixture.homeTeam.logo || fixture.homeTeam.badge ? (
-                            <img
+                            <img loading="lazy" decoding="async" width={20} height={20}
                               src={fixture.homeTeam.logo || fixture.homeTeam.badge}
                               alt=""
                               className="w-5 h-5 object-contain"
@@ -623,7 +623,7 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5 font-medium text-slate-900 dark:text-stone-100 text-sm">
                           {fixture.awayTeam.logo || fixture.awayTeam.badge ? (
-                            <img
+                            <img loading="lazy" decoding="async" width={20} height={20}
                               src={fixture.awayTeam.logo || fixture.awayTeam.badge}
                               alt=""
                               className="w-5 h-5 object-contain"
@@ -721,7 +721,7 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
                       <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300">{item.position}</td>
                       <td className="py-2.5 px-3 font-medium text-slate-900 dark:text-stone-100 flex items-center gap-2">
                         {item.logo && (
-                          <img
+                          <img loading="lazy" decoding="async"
                             src={item.logo}
                             alt=""
                             className="w-4 h-4 object-contain"
@@ -782,7 +782,7 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
             <div className="p-5 sm:p-6 bg-slate-900 text-white flex items-center justify-around border-b border-slate-800">
               <div className="text-center flex-1">
                 {selectedMatch.homeTeam.logo || selectedMatch.homeTeam.badge ? (
-                  <img
+                  <img loading="lazy" decoding="async" width={48} height={48}
                     src={selectedMatch.homeTeam.logo || selectedMatch.homeTeam.badge}
                     alt=""
                     className="w-12 h-12 mx-auto mb-2 object-contain"
@@ -817,7 +817,7 @@ export const LiveSportsCenter: React.FC<LiveSportsCenterProps> = ({
 
               <div className="text-center flex-1">
                 {selectedMatch.awayTeam.logo || selectedMatch.awayTeam.badge ? (
-                  <img
+                  <img loading="lazy" decoding="async" width={48} height={48}
                     src={selectedMatch.awayTeam.logo || selectedMatch.awayTeam.badge}
                     alt=""
                     className="w-12 h-12 mx-auto mb-2 object-contain"

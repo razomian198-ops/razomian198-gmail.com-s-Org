@@ -3303,7 +3303,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 )}
                 {previewArticle.imageUrl && (
                   <div className="rounded-lg overflow-hidden aspect-video mb-4 bg-stone-100 dark:bg-slate-950">
-                    <img
+                    <img loading="lazy" decoding="async"
                       src={previewArticle.imageUrl}
                       alt={previewArticle.title}
                       className="w-full h-full object-cover"
