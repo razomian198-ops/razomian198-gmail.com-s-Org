@@ -137,7 +137,7 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
         <div className="pt-4 flex items-center justify-between flex-wrap gap-4 border-t border-stone-200/60 dark:border-slate-800/80">
           <div className="flex items-center gap-3">
             {article.author.avatar ? (
-              <img
+              <img loading="lazy" decoding="async" width={40} height={40}
                 src={article.author.avatar}
                 alt={article.author.name}
                 className="w-10 h-10 rounded-full object-cover border border-stone-200 dark:border-slate-700"
@@ -169,7 +169,7 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
       {/* Featured Header Photography */}
       {article.imageUrl && (
         <div className="rounded-2xl overflow-hidden aspect-video relative bg-stone-100 dark:bg-slate-950">
-          <img
+          <img loading="lazy" decoding="async"
             src={article.imageUrl}
             alt={article.title}
             className="w-full h-full object-cover"
@@ -559,7 +559,7 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
       {/* Author Bio Box */}
       <div className="p-6 rounded-2xl bg-stone-50 dark:bg-slate-900 border border-stone-200 dark:border-slate-800 flex flex-col sm:flex-row items-center sm:items-start gap-5">
         {article.author.avatar ? (
-          <img
+          <img loading="lazy" decoding="async"
             src={article.author.avatar}
             alt={article.author.name}
             className="w-16 h-16 rounded-full object-cover border border-stone-300 dark:border-slate-700 shrink-0"

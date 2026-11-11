@@ -228,6 +228,8 @@ export const LeadStory: React.FC<LeadStoryProps> = ({
             <img
               src={imageUrl}
               alt={story.title}
+              fetchPriority="high"
+              decoding="async"
               onError={() => setImageFailed(true)}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover min-h-full"

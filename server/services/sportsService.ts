@@ -225,11 +225,25 @@ export class SportsService {
   }
 
   // Retrieve all real fixtures & scores with server-side caching
+  private inflightAllFixtures: Promise<SportsFixture[]> | null = null;
+  private lastGoodFixtures: SportsFixture[] | null = null;
+
   async getAllFixtures(forceRefresh = false): Promise<SportsFixture[]> {
     if (!forceRefresh) {
       const cached = memoryCache.get<SportsFixture[]>(this.CACHE_ALL_FIXTURES);
       if (cached && cached.length > 0) return cached;
     }
+
+    // Share one upstream fetch between simultaneous callers instead of hitting every feed per request.
+    if (!this.inflightAllFixtures) {
+      this.inflightAllFixtures = this.loadAllFixtures().finally(() => {
+        this.inflightAllFixtures = null;
+      });
+    }
+    return this.inflightAllFixtures;
+  }
+
+  private async loadAllFixtures(): Promise<SportsFixture[]> {
 
     // 1. Fetch from open ESPN feeds
     const openFeedPromises = this.ESPN_FEEDS.map((f) => this.fetchOpenScoreboard(f));
@@ -271,11 +285,13 @@ export class SportsService {
     }
 
     const isRealData = deduplicated.length > 0;
-    const finalFixtures = isRealData ? deduplicated : BASELINE_FIXTURES;
+    // If every feed failed this time, keep serving the last good data instead of the generic baseline.
+    if (isRealData) this.lastGoodFixtures = deduplicated;
+    const finalFixtures = isRealData ? deduplicated : (this.lastGoodFixtures ?? BASELINE_FIXTURES);
 
     // Cache: 45s if any match is live, 180s if real fixtures, only 15s if temporary fallback baseline
     const hasLive = finalFixtures.some((f) => f.status === 'live');
-    const ttl = hasLive ? 45 : (isRealData ? 180 : 15);
+    const ttl = hasLive ? 45 : (isRealData || this.lastGoodFixtures ? 180 : 15);
     memoryCache.set(this.CACHE_ALL_FIXTURES, finalFixtures, ttl);
 
     return finalFixtures;

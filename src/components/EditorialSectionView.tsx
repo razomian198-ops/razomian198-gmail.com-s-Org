@@ -314,7 +314,7 @@ export const EditorialSectionView: React.FC<EditorialSectionViewProps> = ({
                           onClick={() => onOpenNewsArticle && onOpenNewsArticle(item)}
                           className="aspect-video relative overflow-hidden bg-stone-100 dark:bg-slate-950 cursor-pointer"
                         >
-                          <img
+                          <img decoding="async"
                             src={item.imageUrl}
                             alt={item.title}
                             className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
@@ -413,7 +413,7 @@ export const EditorialSectionView: React.FC<EditorialSectionViewProps> = ({
                           onClick={() => onOpenArticleBySlug(art.slug)}
                           className="aspect-video relative overflow-hidden bg-stone-100 dark:bg-slate-950 cursor-pointer"
                         >
-                          <img
+                          <img decoding="async"
                             src={art.imageUrl}
                             alt={art.title}
                             className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"

@@ -631,7 +631,7 @@ export default function App() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 <div className="rounded-lg overflow-hidden aspect-video bg-stone-100 dark:bg-slate-950 relative">
-                  <img
+                  <img loading="lazy" decoding="async"
                     src="/images/science_discovery_lab_1792529244932.jpg"
                     alt="Science Discovery Telemetry"
                     className="w-full h-full object-cover"
