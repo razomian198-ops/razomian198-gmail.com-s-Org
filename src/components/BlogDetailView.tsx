@@ -27,6 +27,38 @@ interface BlogDetailViewProps {
   relatedArticles?: EditorialArticle[];
 }
 
+/** Plain-text article body: "### " lines become headings and web addresses become links. */
+function renderArticleText(text: string): React.ReactNode {
+  const linkify = (line: string, key: string): React.ReactNode[] =>
+    line.split(/(https?:\/\/[^\s)]+)/g).map((part, i) =>
+      /^https?:\/\//.test(part) ? (
+        <a
+          key={`${key}-${i}`}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer nofollow"
+          className="text-blue-600 dark:text-blue-400 underline break-all"
+        >
+          {part}
+        </a>
+      ) : (
+        part
+      )
+    );
+  return text.split('\n').map((line, i) =>
+    line.startsWith('### ') ? (
+      <span key={i} className="block text-xl font-bold font-editorial text-slate-900 dark:text-white mt-6">
+        {line.slice(4)}
+      </span>
+    ) : (
+      <React.Fragment key={i}>
+        {linkify(line, String(i))}
+        {'\n'}
+      </React.Fragment>
+    )
+  );
+}
+
 export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
   currentLanguage,
   article,
@@ -231,7 +263,7 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
 
       {/* Main Prose Content */}
       <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 font-sans leading-relaxed text-base sm:text-lg space-y-6 whitespace-pre-line">
-        {article.content}
+        {renderArticleText(article.content)}
       </div>
 
       {/* Editorial Guide Template Interactive Modules (Checklists, Comparisons, Step Tutorials, FAQs) */}

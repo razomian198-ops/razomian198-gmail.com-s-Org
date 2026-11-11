@@ -46,3 +46,11 @@ Local Lighthouse (mobile, production build): Performance 92, SEO 100, Accessibil
 2. Open home, switch sections (URL should change), open an article, open a wrong URL (404 page), view `/sitemap.xml`.
 3. Run PageSpeed on mobile and desktop.
 4. If all is fine, merge the pull request. To undo, revert the merge.
+
+## Round 2 (branch `home-cleanup-seo`)
+
+- Home page: removed the static "Scientific Discovery Desk" block (large image, fixed text, unverified "Peer-Reviewed" label). Added a "Browse by topic" block with real links. Impact Brief, Live Sports, FactTrail and Compare Coverage now load only when scrolled near (less work and fewer API calls on first load). The deep-explainer article is still reachable from its own pages.
+- SEO/AEO: first HTML response now contains real headings, text and internal links (React replaces it on load). Articles include their full text and 30-second summary. JSON-LD added: WebSite, BreadcrumbList, and Article for every article. Organization data points to the real editorial-policy page.
+- `robots.txt` explicitly allows Google, Bing and AI search crawlers (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot); `/admin` and `/api/` stay closed.
+- New `/llms.txt` (site summary for AI systems) and `/feed.xml` (RSS of original articles), advertised with a `<link rel="alternate">` tag.
+- Honest limit: ranking also needs original content, backlinks and time. Code only makes the site easy to crawl and understand.

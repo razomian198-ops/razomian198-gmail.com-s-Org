@@ -25,6 +25,7 @@ const EXTRA_ROUTES: RouteDef[] = [
   { id: 'research-studies', path: '/research-studies', title: `Research & Studies | ${SITE}`, description: 'Plain-language reviews of new research and studies, with links to the papers.' },
   { id: 'sports-analysis', path: '/sports-analysis', title: `Sports Analysis | ${SITE}`, description: 'Tactical and statistical analysis of football, basketball and more.' },
   { id: 'opinion-editorial', path: '/opinion-editorial', title: `Opinion & Editorial | ${SITE}`, description: 'Signed opinion pieces, clearly separated from news reporting.' },
+  { id: 'contact', path: '/contact', title: `Contact | ${SITE}`, description: 'How to reach FactInfoLive: send corrections, source tips, removal requests or partnership enquiries.' },
   { id: 'guides-faqs', path: '/guides-faqs', title: `Guides & FAQs | ${SITE}`, description: 'Practical guides for verifying news, using AI tools and reading research.' },
 ];
 

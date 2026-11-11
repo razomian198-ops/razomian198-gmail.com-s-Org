@@ -41,6 +41,13 @@ const INITIAL_USERS: AdminUser[] = [];
 
 
 // Default editorial authors
+const FACTINFOLIVE_AUTHOR: EditorialAuthor = {
+  id: 'author-factinfolive',
+  name: 'FactInfoLive',
+  role: 'Editorial team (AI-assisted, human-reviewed)',
+  bio: 'Articles are researched from linked sources with AI assistance and reviewed by a person before publishing.',
+};
+
 export const EDITORIAL_AUTHORS: Record<string, EditorialAuthor> = {
   sarah: {
     id: 'author-sarah',
@@ -428,7 +435,17 @@ export const INITIAL_AI_TOOL_REVIEWS: AiToolReview[] = [
 // Production: Product Catalog starts empty until genuine products are configured
 export const INITIAL_PRODUCTS: ProductItem[] = [];
 
+import { BATCH_1_ARTICLES } from './seedArticlesBatch1.ts';
+
+// Seeds in this list are authoritative: edits here also update copies already saved on disk.
+const SEED_SYNC_IDS = new Set<string>([
+  'art-explainer-1', 'art-blog-1', 'art-summary-1', 'art-sports-1', 'art-research-1', 'art-factcheck-1',
+  'art-guide-llm-comparison', 'art-opinion-1', 'art-guide-1', 'art-guide-osint',
+  'art-guide-football-analytics', 'art-guide-ai-hallucinations',
+]);
+
 const SEED_ARTICLES: EditorialArticle[] = [
+  ...BATCH_1_ARTICLES,
   // 1. Deep Explainer: Ocean Heat Content
   {
     id: 'art-explainer-1',
@@ -451,7 +468,7 @@ The accumulation of thermal energy in the upper 700 meters enhances vertical str
     author: EDITORIAL_AUTHORS.sarah,
     category: 'science',
     tags: ['Oceanography', 'Thermodynamics', 'Climate Physics', 'Argo Float Network'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 14).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     readingTimeMinutes: 7,
@@ -535,7 +552,7 @@ While optical clocks previously required room-sized laboratory tables isolated o
     author: EDITORIAL_AUTHORS.sarah,
     category: 'technology',
     tags: ['Quantum Physics', 'Metrology', 'Aerospace', 'Optical Clocks', 'Sensors'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 22).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
     readingTimeMinutes: 5,
@@ -560,7 +577,7 @@ While optical clocks previously required room-sized laboratory tables isolated o
     author: EDITORIAL_AUTHORS.editorial_board,
     category: 'science',
     tags: ['JWST', 'Exoplanet', 'Spectroscopy', 'NASA'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     readingTimeMinutes: 3,
@@ -635,7 +652,7 @@ This tactical evolution places extraordinary cardiovascular and cognitive demand
     author: EDITORIAL_AUTHORS.elena,
     category: 'sports',
     tags: ['Football', 'Tactical Analysis', 'Champions League', 'Rest-Defense', 'Analytics'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 18).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     readingTimeMinutes: 6,
@@ -671,7 +688,7 @@ While laboratory cycle life has surpassed 1,200 cycles with 88% capacity retenti
     author: EDITORIAL_AUTHORS.sarah,
     category: 'technology',
     tags: ['Materials Science', 'Solid-State', 'Lithium Metal', 'Clean Energy', 'Peer-Reviewed'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 30).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
     readingTimeMinutes: 8,
@@ -696,7 +713,7 @@ When artificial intelligence models are trained indiscriminately on unverified w
 1. **Unbroken Provenance**: Every factual claim must link directly to the primary public filing, academic preprint, or on-the-record dispatch that originated it.
 2. **Explicit Uncertainty**: Media organizations must state what is confirmed, what remains in development, and where reputable sources disagree.
 3. **Zero-Incentive Amplification**: Content discovery must prioritize factual rigor and verified updates over click-maximizing sensationalism.`,
-    author: EDITORIAL_AUTHORS.marcus,
+    author: FACTINFOLIVE_AUTHOR,
     category: 'society',
     tags: ['Media Ethics', 'Journalism', 'Transparency', 'Information Security'],
     status: 'published',
@@ -704,8 +721,7 @@ When artificial intelligence models are trained indiscriminately on unverified w
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
     readingTimeMinutes: 4,
     imageUrl: '/images/hero_editorial_world_1792529244145.jpg',
-    imageAttribution: 'International Press Institute Archive',
-    isAiAssisted: false,
+    isAiAssisted: true,
   },
 
   // 7. Fact Check: Solar Flares and Grid Claims
@@ -728,7 +744,7 @@ The claim that an extreme solar storm will trigger immediate continental blackou
     author: EDITORIAL_AUTHORS.editorial_board,
     category: 'fact-checks',
     tags: ['Fact Check', 'Space Weather', 'NOAA', 'Solar Physics', 'Power Grid'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 40).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 10).toISOString(),
     readingTimeMinutes: 3,
@@ -745,7 +761,7 @@ The claim that an extreme solar storm will trigger immediate continental blackou
     title: 'Guide & FAQ: How to Read Scientific & Clinical Preprints Without Being Misled',
     subtitle: 'A practical framework for distinguishing preliminary lab findings from peer-reviewed clinical standards of care.',
     content: `### The Purpose of Open Science Preprints
-Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emerging datasets with colleagues rapidly before undergoing traditional peer review, which can take 6 to 18 months. While this accelerates collaborative inquiry, uncritical media coverage often transforms preliminary mouse-model trials into sensationalized "miracle cures."
+Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emerging datasets with colleagues rapidly before undergoing traditional peer review, which can take months. While this accelerates collaborative inquiry, uncritical media coverage often transforms preliminary mouse-model trials into sensationalized "miracle cures."
 
 ### 5 Critical Checks Before Believing a Health Headline
 1. **Sample Size & Study Design**: Is it a randomized double-blind placebo-controlled human trial (RCT), or an in vitro cell culture study? In vitro results rarely translate directly to human pharmacology.
@@ -753,7 +769,7 @@ Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emergin
 3. **Statistical Significance vs Clinical Significance**: A p-value < 0.05 indicates the result is unlikely due to chance, but the real-world effect size may be negligible.
 4. **Funding & Conflict of Interest Declarations**: Always scroll to the disclosures section to identify corporate sponsorship or patent holdings.
 5. **Peer-Review Status**: Check whether the preprint has been peer-reviewed or accepted into an indexed journal.`,
-    author: EDITORIAL_AUTHORS.sarah,
+    author: FACTINFOLIVE_AUTHOR,
     category: 'health',
     tags: ['Science Literacy', 'Preprints', 'Medicine', 'Clinical Trials', 'Research Guide'],
     status: 'published',
@@ -761,8 +777,7 @@ Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emergin
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
     readingTimeMinutes: 5,
     imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
-    imageAttribution: 'National Library of Medicine / Open Science Framework',
-    isAiAssisted: false,
+    isAiAssisted: true,
   },
 
   // 9. Practical Guide & Checklist: OSINT Verification
@@ -773,10 +788,10 @@ Platforms such as bioRxiv, medRxiv, and arXiv allow researchers to share emergin
     title: 'The OSINT Verification Framework: 5-Step Checklist for Breaking News Claims',
     subtitle: 'How professional open-source researchers verify viral combat footage, crisis claims, and fabricated press statements.',
     content: `### Why Speed Destroys Factuality During Breaking News
-During the initial 2 to 6 hours of a major international crisis or breaking story, up to 70% of viral video clips circulating on social platforms are either recycled archival footage, video game simulations, or selectively cropped out of original geographic context.
+In the first hours of a major crisis or breaking story, viral clips are often old footage, footage from another place, or edited. Treat every clip as unverified until you have checked it.
 
-As independent verification researchers, our primary mandate is not to be first, but to establish evidentiary ground truth. This guide details the 5-point open-source intelligence (OSINT) checklist used by FactInfoLive editors to audit breaking claims before publication.`,
-    author: EDITORIAL_AUTHORS.editorial_board,
+The goal is not to be first, but to be right. This guide describes a 5-point open-source (OSINT) checklist that anyone can use to check a breaking claim before sharing it.`,
+    author: FACTINFOLIVE_AUTHOR,
     category: 'fact-checks',
     tags: ['OSINT', 'Fact-Checking', 'Verification', 'Media Literacy', 'Research Guide'],
     status: 'published',
@@ -784,8 +799,7 @@ As independent verification researchers, our primary mandate is not to be first,
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
     readingTimeMinutes: 6,
     imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
-    imageAttribution: 'FactInfoLive Open Verification Unit',
-    isAiAssisted: false,
+    isAiAssisted: true,
     guideTemplate: {
       templateType: 'checklist',
       difficulty: 'beginner',
@@ -846,7 +860,7 @@ In this benchmark, FactInfoLive audits four premier approaches across latency, o
     author: EDITORIAL_AUTHORS.sarah,
     category: 'science',
     tags: ['AI Tools', 'Local LLMs', 'Ollama', 'Cloud APIs', 'Privacy', 'Benchmark'],
-    status: 'published',
+    status: 'archived',
     publishedAt: new Date(Date.now() - 1000 * 60 * 60 * 28).toISOString(),
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
     readingTimeMinutes: 7,
@@ -902,10 +916,10 @@ In this benchmark, FactInfoLive audits four premier approaches across latency, o
     title: 'How to Read Modern Football Analytics: Step-by-Step Guide to xG, PPDA, and Field Tilt',
     subtitle: 'Moving beyond possession statistics: how optical tracking telemetry and expected goals models explain match dominance.',
     content: `### Beyond the Illusion of Raw Possession
-For decades, television broadcasts reported match dominance using two primitive metrics: total shots and possession percentage. Modern tactical analysts know that a team can hold 70% possession by circulating the ball between center-backs while generating zero high-probability chances.
+For decades, television broadcasts reported match dominance using two primitive metrics: total shots and possession percentage. Analysts point out that a team can hold a large share of possession by passing between its centre-backs while creating few real chances.
 
 Expected metrics, derived from computer-vision tracking and historical spatial coordinates of over 500,000 professional shots, provide the statistical baseline for modern sports journalism. Here is how to interpret them accurately.`,
-    author: EDITORIAL_AUTHORS.elena,
+    author: FACTINFOLIVE_AUTHOR,
     category: 'sports',
     tags: ['Sports Analytics', 'Football', 'xG', 'Tactics', 'Telemetry', 'Tutorial'],
     status: 'published',
@@ -913,8 +927,7 @@ Expected metrics, derived from computer-vision tracking and historical spatial c
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
     readingTimeMinutes: 6,
     imageUrl: '/images/sports_tactics_analysis_1792529244464.jpg',
-    imageAttribution: 'Opta / StatsBomb Tactical Telemetry Archive',
-    isAiAssisted: false,
+    isAiAssisted: true,
     guideTemplate: {
       templateType: 'tutorial',
       difficulty: 'beginner',
@@ -956,7 +969,7 @@ Expected metrics, derived from computer-vision tracking and historical spatial c
 Large language models do not query an internal relational database of verified facts; they predict the most statistically probable next token sequence given preceding text. When asked for an academic citation on an obscure topic, an LLM often generates a plausible-sounding author, journal name, and fabricated DOI that looks authentic but does not exist in any index.
 
 This guide provides immediate, practical safeguards to verify citations before including them in serious research papers or reporting.`,
-    author: EDITORIAL_AUTHORS.sarah,
+    author: FACTINFOLIVE_AUTHOR,
     category: 'science',
     tags: ['AI Literacy', 'Research Methodology', 'Hallucinations', 'Academic Integrity', 'Troubleshooting'],
     status: 'published',
@@ -964,8 +977,7 @@ This guide provides immediate, practical safeguards to verify citations before i
     updatedAt: new Date(Date.now() - 1000 * 60 * 60 * 1).toISOString(),
     readingTimeMinutes: 5,
     imageUrl: '/images/science_discovery_lab_1792529244932.jpg',
-    imageAttribution: 'FactInfoLive Research Integrity Desk',
-    isAiAssisted: false,
+    isAiAssisted: true,
     guideTemplate: {
       templateType: 'troubleshooting',
       difficulty: 'beginner',
@@ -977,7 +989,7 @@ This guide provides immediate, practical safeguards to verify citations before i
         },
         {
           question: 'How do I immediately test whether a paper cited by an AI actually exists?',
-          answer: 'Copy the exact title into Google Scholar, PubMed, or Crossref.org. If no exact match appears within the top 3 results, the citation is almost certainly hallucinated.',
+          answer: 'Copy the exact title into Google Scholar, PubMed, or Crossref.org. If no matching record appears, treat the citation as unverified and do not use it until you find the real source.',
         },
         {
           question: 'What prompt instructions best suppress citation invention?',
@@ -1043,6 +1055,13 @@ export class EditorialStore {
         } else {
           // Respect user modifications: never resurrect deleted demonstration articles
           this.articles = existingArticles;
+        }
+
+        // Seed articles that were retired or corrected replace any older stored copy
+        for (const seed of SEED_ARTICLES) {
+          if (!SEED_SYNC_IDS.has(seed.id)) continue;
+          const idx = this.articles.findIndex((a) => a.id === seed.id);
+          if (idx >= 0) this.articles[idx] = seed;
         }
 
         // Auto-merge newly added seed articles if missing

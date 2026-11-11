@@ -157,6 +157,18 @@ export const Footer: React.FC<FooterProps> = ({
                   Editorial Independence Policy
                 </button>
               </li>
+              <li>
+                <a
+                  href="/contact"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onSelectCategory('contact');
+                  }}
+                  className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                >
+                  Contact &amp; Corrections
+                </a>
+              </li>
               {/* The admin dashboard is deliberately not linked publicly; editors open /admin directly. */}
               {onOpenSponsorshipModal && (
                 <li>
@@ -180,7 +192,7 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <div>
-            © {new Date().getFullYear()} FactInfoLive Intelligence Consortium. All publisher rights belong to original wire reporters.
+            © {new Date().getFullYear()} FactInfoLive. News headlines link to their original publishers, who hold the rights to their reporting.
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <button onClick={() => onSelectCategory('about')} className="hover:underline cursor-pointer">

@@ -12,6 +12,7 @@ import { aiService } from './server/services/aiService.ts';
 import { statusService } from './server/services/statusService.ts';
 import { SportType } from './server/services/types.ts';
 import { editorialStore } from './server/services/editorialStore.ts';
+import { buildStructuredData, buildCrawlerHtml, buildLlmsTxt, buildRssFeed } from './server/services/seoHtml.ts';
 import { editorialAiService } from './server/services/editorialAiService.ts';
 import { factTrailService } from './server/services/factTrailService.ts';
 import { compareCoverageService } from './server/services/compareCoverageService.ts';
@@ -178,13 +179,31 @@ async function startServer() {
   app.get('/robots.txt', (req: Request, res: Response) => {
     res.type('text/plain');
     const baseUrl = getBaseUrl(req);
+    // Search engines and AI answer engines are welcome on public pages; the admin area and raw API stay closed.
+    const bots = ['Googlebot', 'Bingbot', 'GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot', 'PerplexityBot', 'Google-Extended', 'Applebot'];
     res.send(`User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /api/
 
+${bots.map((b) => `User-agent: ${b}\nAllow: /\nDisallow: /admin\nDisallow: /api/\n`).join('\n')}
 Sitemap: ${baseUrl}/sitemap.xml
 `);
+  });
+
+  // Public site settings (contact email is set in the host's environment variables, never in code)
+  app.get('/api/site-info', (_req: Request, res: Response) => {
+    res.json({ contactEmail: process.env.CONTACT_EMAIL?.trim() || null });
+  });
+
+  // AI-readable site summary and RSS feed of original articles
+  app.get('/llms.txt', (req: Request, res: Response) => {
+    const { items } = editorialStore.getArticles({ status: 'published', limit: 50 });
+    res.type('text/plain').send(buildLlmsTxt(getBaseUrl(req), ROUTES, items));
+  });
+  app.get('/feed.xml', (req: Request, res: Response) => {
+    const { items } = editorialStore.getArticles({ status: 'published', limit: 30 });
+    res.type('application/rss+xml').send(buildRssFeed(getBaseUrl(req), items));
   });
 
   // SEO: sitemap.xml
@@ -1819,7 +1838,7 @@ Sitemap: /sitemap.xml
 
     // Every page gets its own <title>, description and canonical in the first HTML response,
     // and unknown URLs answer with a real 404 instead of silently showing the home page.
-    app.get('*', (req: Request, res: Response) => {
+    app.get('*', async (req: Request, res: Response) => {
       // A missing file (image, js, map...) is a plain 404, never the app shell
       if (/\.[a-z0-9]{1,6}$/i.test(req.path)) {
         return res.status(404).type('text/plain').send('Not found');
@@ -1839,6 +1858,8 @@ Sitemap: /sitemap.xml
       let description = HOME_ROUTE.description;
       let canonicalPath = '/';
       let noindex = false;
+      let pageArticle: ReturnType<typeof editorialStore.getArticleBySlug> | undefined;
+      let h1 = HOME_ROUTE.title.split('|')[0].trim();
 
       const slug = articleSlugFromPath(pathname);
       const route = routeForPath(pathname);
@@ -1853,6 +1874,8 @@ Sitemap: /sitemap.xml
           title = `${art.title} | FactInfoLive`;
           description = String(art.subtitle || art.title).slice(0, 200);
           canonicalPath = `/article/${art.slug}`;
+          pageArticle = art;
+          h1 = art.title;
         } else {
           status = 404;
           title = 'Article not found | FactInfoLive';
@@ -1863,6 +1886,7 @@ Sitemap: /sitemap.xml
         title = route.title;
         description = route.description;
         canonicalPath = route.path;
+        h1 = route.title.split('|')[0].trim();
       } else if (pathname !== '/') {
         status = 404;
         title = 'Page not found | FactInfoLive';
@@ -1876,6 +1900,37 @@ Sitemap: /sitemap.xml
       // og:image needs an absolute URL; /og-preview.png was never shipped, so use a real image
       const ogImage = `${baseUrl}/images/hero_editorial_world_1792529244145.jpg`;
 
+      // Real content and structured data for crawlers (skipped for 404/admin pages)
+      let structured = '';
+      let crawlerHtml = '';
+      if (status === 200 && !noindex) {
+        structured = buildStructuredData({
+          baseUrl,
+          canonicalUrl,
+          title,
+          description,
+          route: route || undefined,
+          article: pageArticle || undefined,
+        });
+        let headlines: Awaited<ReturnType<typeof newsService.getNewsByCategory>> = [];
+        if (!pageArticle && (pathname === '/' || route?.id === 'latest-news')) {
+          // Only use what is quickly available so a cold news cache never slows the page down
+          headlines = await Promise.race([
+            newsService.getNewsByCategory('').catch(() => []),
+            new Promise<[]>((resolve) => setTimeout(() => resolve([]), 1200)),
+          ]);
+        }
+        crawlerHtml = buildCrawlerHtml({
+          baseUrl,
+          h1,
+          description,
+          article: pageArticle || undefined,
+          headlines,
+          navRoutes: ROUTES,
+          latestArticles: editorialStore.getArticles({ status: 'published', limit: 12 }).items,
+        });
+      }
+
       html = html
         .replace(/<title>[\s\S]*?<\/title>/, `<title>${t}</title>`)
         .replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${d}" />`)
@@ -1886,9 +1941,11 @@ Sitemap: /sitemap.xml
         .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${d}" />`)
         // The structured data used to point at factinfolive.org instead of the real domain
         .replace(/https:\/\/factinfolive\.org/g, baseUrl)
+        .replace('<div id="root"></div>', () => `<div id="root">${crawlerHtml}</div>`)
+        .replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, (m) => `${m}\n    ${structured}`)
         .replace(
           '</head>',
-          `<link rel="canonical" href="${escapeAttr(canonicalUrl)}" />\n    <meta property="og:url" content="${escapeAttr(canonicalUrl)}" />${
+          `<link rel="alternate" type="application/rss+xml" title="FactInfoLive" href="${escapeAttr(baseUrl)}/feed.xml" />\n    <link rel="canonical" href="${escapeAttr(canonicalUrl)}" />\n    <meta property="og:url" content="${escapeAttr(canonicalUrl)}" />${
             noindex ? '\n    <meta name="robots" content="noindex, nofollow" />' : ''
           }\n  </head>`
         );
