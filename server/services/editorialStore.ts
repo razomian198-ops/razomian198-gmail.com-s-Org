@@ -437,6 +437,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [];
 
 import { BATCH_1_ARTICLES } from './seedArticlesBatch1.ts';
 import { BATCH_2_ARTICLES } from './seedArticlesBatch2.ts';
+import { BATCH_3_ARTICLES } from './seedArticlesBatch3.ts';
 
 // Seeds in this list are authoritative: edits here also update copies already saved on disk.
 const SEED_SYNC_IDS = new Set<string>([
@@ -448,6 +449,7 @@ const SEED_SYNC_IDS = new Set<string>([
 const SEED_ARTICLES: EditorialArticle[] = [
   ...BATCH_1_ARTICLES,
   ...BATCH_2_ARTICLES,
+  ...BATCH_3_ARTICLES,
   // 1. Deep Explainer: Ocean Heat Content
   {
     id: 'art-explainer-1',
