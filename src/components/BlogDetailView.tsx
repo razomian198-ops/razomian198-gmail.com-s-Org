@@ -269,7 +269,7 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
         {renderArticleText(article.content)}
       </div>
 
-      <ArticleFeedback title={article.title} />
+      <ArticleFeedback title={article.title} slug={article.slug} />
 
       {/* Editorial Guide Template Interactive Modules (Checklists, Comparisons, Step Tutorials, FAQs) */}
       {article.guideTemplate && (
