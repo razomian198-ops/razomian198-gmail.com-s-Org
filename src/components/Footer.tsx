@@ -125,24 +125,6 @@ export const Footer: React.FC<FooterProps> = ({
                   Health &amp; Clinical Trials
                 </button>
               </li>
-              <li>
-                <a href="/sitemap.xml" target="_blank" rel="noreferrer" className="hover:text-slate-900 dark:hover:text-white flex items-center gap-1">
-                  <span>XML Sitemap (/sitemap.xml)</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-              </li>
-              <li>
-                <a href="/robots.txt" target="_blank" rel="noreferrer" className="hover:text-slate-900 dark:hover:text-white flex items-center gap-1">
-                  <span>Robots Directives (/robots.txt)</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-              </li>
-              <li>
-                <a href="/feed.xml" target="_blank" rel="noreferrer" className="hover:text-slate-900 dark:hover:text-white flex items-center gap-1">
-                  <span>RSS Intelligence Feed (/feed.xml)</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                </a>
-              </li>
             </ul>
           </div>
 
