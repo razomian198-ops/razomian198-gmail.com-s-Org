@@ -154,7 +154,7 @@ export const Footer: React.FC<FooterProps> = ({
               </li>
               <li>
                 <a href={neonlytechFooterHref} target="_blank" rel="noopener" className="hover:text-slate-900 dark:hover:text-white">
-                  NEONLYTECH (our other project) ↗
+                  Developed by NEONLYTECH ↗
                 </a>
               </li>
               {/* The admin dashboard is deliberately not linked publicly; editors open /admin directly. */}
@@ -180,7 +180,8 @@ export const Footer: React.FC<FooterProps> = ({
         {/* Bottom bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-slate-500">
           <div>
-            © {new Date().getFullYear()} FactInfoLive. News headlines link to their original publishers, who hold the rights to their reporting.
+            © {new Date().getFullYear()} FactInfoLive. News headlines link to their original publishers, who hold the rights to their reporting.{' '}
+            <a href={neonlytechFooterHref} target="_blank" rel="noopener" className="font-semibold text-slate-700 dark:text-slate-300 hover:underline">FactInfoLive developed by NEONLYTECH</a>.
           </div>
           <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <button onClick={() => onSelectCategory('about')} className="hover:underline cursor-pointer">
