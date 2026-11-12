@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { restoreStoreFile, scheduleBackup } from './remoteBackup.ts';
 import {
   EditorialArticle,
   EditorialAuthor,
@@ -1149,8 +1150,7 @@ export class EditorialStore {
         `.editorialStore.tmp.${Date.now()}.${crypto.randomBytes(4).toString('hex')}`
       );
 
-      const payload = JSON.stringify(
-        {
+      const snapshot = {
           isSeeded: this.isSeeded,
           articles: this.articles,
           subscribers: this.subscribers,
@@ -1164,13 +1164,12 @@ export class EditorialStore {
           products: this.products,
           analyticsEvents: this.analyticsEvents.slice(-500), // Keep recent 500 events
           lastSavedAt: new Date().toISOString(),
-        },
-        null,
-        2
-      );
+      };
+      const payload = JSON.stringify(snapshot, null, 2);
 
       fs.writeFileSync(tempFile, payload, 'utf-8');
       fs.renameSync(tempFile, STORE_FILE);
+      scheduleBackup({ ...snapshot, analyticsEvents: [] });
     } catch (err: any) {
       console.error(`[EditorialStore] Atomic persistence warning:`, err?.message || err);
     }
@@ -2214,4 +2213,5 @@ export class EditorialStore {
   }
 }
 
+await restoreStoreFile(STORE_FILE);
 export const editorialStore = new EditorialStore();
