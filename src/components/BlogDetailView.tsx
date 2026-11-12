@@ -18,6 +18,7 @@ import {
 import { EditorialArticle } from '../../server/services/types.ts';
 import { SupportedLanguage, TRANSLATIONS } from '../i18n/translations.ts';
 import { NewsletterBanner } from './NewsletterBanner.tsx';
+import { ArticleDisclaimer, ArticleFeedback } from './ArticleNotices.tsx';
 
 interface BlogDetailViewProps {
   currentLanguage: SupportedLanguage;
@@ -261,10 +262,14 @@ export const BlogDetailView: React.FC<BlogDetailViewProps> = ({
         </div>
       )}
 
+      <ArticleDisclaimer />
+
       {/* Main Prose Content */}
       <div className="prose prose-slate dark:prose-invert max-w-none text-slate-800 dark:text-slate-200 font-sans leading-relaxed text-base sm:text-lg space-y-6 whitespace-pre-line">
         {renderArticleText(article.content)}
       </div>
+
+      <ArticleFeedback title={article.title} />
 
       {/* Editorial Guide Template Interactive Modules (Checklists, Comparisons, Step Tutorials, FAQs) */}
       {article.guideTemplate && (
