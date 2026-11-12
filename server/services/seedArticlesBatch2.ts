@@ -57,7 +57,7 @@ EdSource on the Stanford curriculum and click restraint: https://edsource.org/te
       seoTitle: 'Lateral Reading: How Fact-Checkers Judge a Website (Stanford Study)',
       metaDescription: 'Lateral reading means opening new tabs to check who is behind a site. A Stanford study found fact-checkers using it beat historians and students. Steps and sources.',
       focusKeyword: 'lateral reading how to check a website',
-      schemaType: 'HowTo',
+      schemaType: 'TechArticle',
     },
   },
   {
@@ -105,7 +105,7 @@ Macmyths, on Content Credentials as provenance, not proof: https://macmyths.com/
       seoTitle: 'How to Check if an Image Is AI-Generated: SynthID & Content Credentials',
       metaDescription: 'What SynthID and C2PA Content Credentials can and cannot tell you about an AI-generated image, plus a simple order of checks. Sourced guide.',
       focusKeyword: 'how to check if an image is AI generated',
-      schemaType: 'HowTo',
+      schemaType: 'TechArticle',
     },
   },
   {
@@ -150,7 +150,7 @@ State of Surveillance, guide quoting FTC and CISA: https://stateofsurveillance.o
       seoTitle: 'How to Spot a Phishing Email and Report It (FTC Advice)',
       metaDescription: 'Warning signs of phishing emails and texts, how to check a message safely, and where to report it, based on FTC, CISA and BBB guidance.',
       focusKeyword: 'how to spot a phishing email',
-      schemaType: 'HowTo',
+      schemaType: 'TechArticle',
     },
   },
 ];
