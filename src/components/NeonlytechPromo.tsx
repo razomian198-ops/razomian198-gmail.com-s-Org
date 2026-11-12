@@ -9,10 +9,10 @@ const href = (campaign: string) =>
 export const NeonlytechBar: React.FC = () => (
   <div className="bg-slate-900 text-slate-200 text-[11px] sm:text-xs border-b border-slate-800">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2 flex-wrap text-center">
-      <span className="uppercase tracking-wider text-[9px] font-bold text-slate-400">Our other project</span>
+      <span className="uppercase tracking-wider text-[9px] font-bold text-slate-400">Developed by</span>
       <span>
-        <strong className="text-white">NEONLYTECH</strong> – Smarter Technology. Better Business.
-        <span className="hidden sm:inline"> AI automation, websites &amp; SEO.</span>
+        FactInfoLive developed by <strong className="text-white">NEONLYTECH</strong>
+        <span className="hidden sm:inline"> – AI automation, websites &amp; SEO services.</span>
       </span>
       <a
         href={href('header_bar')}
@@ -33,10 +33,10 @@ export const NeonlytechCard: React.FC = () => (
     className="my-8 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
   >
     <div className="flex-1 space-y-1">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Promotion · our other project</p>
-      <p className="text-sm font-bold text-slate-900 dark:text-white">NEONLYTECH – Smarter Technology. Better Business.</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Promotion · web &amp; AI services</p>
+      <p className="text-sm font-bold text-slate-900 dark:text-white">FactInfoLive is developed by NEONLYTECH – Smarter Technology. Better Business.</p>
       <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-        Digital technology and AI automation: chatbots, website development, SEO/AEO and process automation for small businesses.
+        A service provider for digital technology and AI automation: chatbots, website development, SEO/AEO and process automation for small businesses.
       </p>
     </div>
     <a
