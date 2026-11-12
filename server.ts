@@ -196,6 +196,48 @@ Sitemap: ${baseUrl}/sitemap.xml
     res.json({ contactEmail: process.env.CONTACT_EMAIL?.trim() || null });
   });
 
+  // Reader feedback (Supabase, moderated: new items stay 'pending' until approved in the Supabase table editor).
+  // URL and publishable key are public by design; row-level security only lets anon insert pending rows and read approved ones.
+  const SB_URL = (process.env.SUPABASE_URL || 'https://nandwfborgwwcixqnyhr.supabase.co').replace(/\/$/, '');
+  const SB_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_TZudEhIlq0t1dkd06Pzt9g_xZAGF8cR';
+  const sbHeaders = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' };
+
+  app.get('/api/feedback/:slug', async (req: Request, res: Response) => {
+    try {
+      const slug = String(req.params.slug || '').slice(0, 200);
+      const url = `${SB_URL}/rest/v1/article_feedback?select=display_name,message,source_url,created_at&status=eq.approved&article_slug=eq.${encodeURIComponent(slug)}&order=created_at.desc&limit=50`;
+      const r = await fetch(url, { headers: sbHeaders });
+      if (!r.ok) return res.json([]);
+      res.json(await r.json());
+    } catch {
+      res.json([]);
+    }
+  });
+
+  app.post('/api/feedback', async (req: Request, res: Response) => {
+    try {
+      const slug = String(req.body?.slug || '').trim();
+      const message = String(req.body?.message || '').trim();
+      const name = String(req.body?.name || '').trim().slice(0, 60);
+      const sourceUrl = String(req.body?.sourceUrl || '').trim().slice(0, 500);
+      if (!slug || slug.length > 200 || message.length < 5 || message.length > 2000) {
+        return res.status(400).json({ error: 'Please write between 5 and 2000 characters.' });
+      }
+      if (sourceUrl && !/^https?:\/\//i.test(sourceUrl)) {
+        return res.status(400).json({ error: 'Source link must start with http:// or https://' });
+      }
+      const r = await fetch(`${SB_URL}/rest/v1/article_feedback`, {
+        method: 'POST',
+        headers: { ...sbHeaders, Prefer: 'return=minimal' },
+        body: JSON.stringify({ article_slug: slug, display_name: name || null, message, source_url: sourceUrl || null }),
+      });
+      if (!r.ok) return res.status(502).json({ error: 'Could not save your message right now. Please use the email option.' });
+      res.status(201).json({ ok: true });
+    } catch {
+      res.status(502).json({ error: 'Could not save your message right now. Please use the email option.' });
+    }
+  });
+
   // AI-readable site summary and RSS feed of original articles
   app.get('/llms.txt', (req: Request, res: Response) => {
     const { items } = editorialStore.getArticles({ status: 'published', limit: 50 });
