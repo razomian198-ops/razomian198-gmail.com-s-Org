@@ -54,3 +54,12 @@ Local Lighthouse (mobile, production build): Performance 92, SEO 100, Accessibil
 - `robots.txt` explicitly allows Google, Bing and AI search crawlers (GPTBot, OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended, Applebot); `/admin` and `/api/` stay closed.
 - New `/llms.txt` (site summary for AI systems) and `/feed.xml` (RSS of original articles), advertised with a `<link rel="alternate">` tag.
 - Honest limit: ranking also needs original content, backlinks and time. Code only makes the site easy to crawl and understand.
+
+## Round 3 (contact, trust, growth)
+- Contact page (`/contact`) with a public email, plus logo/favicon/RSS autodiscovery.
+- Footer cleanup (feeds links removed from public footer; contact link added).
+- Article audit; new sourced articles (batches 2 and 3). Every article shows a notice that it may contain mistakes and lists its sources.
+- Moderated reader feedback under every article, stored in Supabase (`feedback`, RLS: public can only add pending rows and read approved ones).
+- Admin surfaces checked: admin endpoints require login; first-time admin setup needs a setup token.
+- Labelled NEONLYTECH "developed by" strip (all pages), article card and footer links, UTM-tagged.
+- Durable backup: the editorial store (articles, admin users, settings) is copied to Supabase table `site_state` (RLS on, no public policy) and restored on startup. Needs env `SUPABASE_SECRET_KEY` on Render.
