@@ -6,6 +6,7 @@ import { NewsGrid } from './components/NewsGrid.tsx';
 import { CompareCoveragePanel } from './components/CompareCoveragePanel.tsx';
 import { AdBanner } from './components/AdBanner.tsx';
 import { Footer } from './components/Footer.tsx';
+import { NeonlytechBar } from './components/NeonlytechPromo.tsx';
 import { FactTrailSection } from './components/FactTrailSection.tsx';
 import { ImpactBriefSection } from './components/ImpactBriefSection.tsx';
 import { ConsentBanner } from './components/ConsentBanner.tsx';
@@ -448,6 +449,8 @@ export default function App() {
         }}
         onOpenSupporterModal={() => setIsSupporterModalOpen(true)}
       />
+
+      <NeonlytechBar />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-10 sm:space-y-12">
