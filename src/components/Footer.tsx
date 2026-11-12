@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShieldCheck, Heart, ExternalLink } from 'lucide-react';
 import { SupportedLanguage } from '../i18n/translations.ts';
+import { neonlytechFooterHref } from './NeonlytechPromo.tsx';
 
 interface FooterProps {
   currentLanguage: SupportedLanguage;
@@ -149,6 +150,11 @@ export const Footer: React.FC<FooterProps> = ({
                   className="hover:text-slate-900 dark:hover:text-white cursor-pointer"
                 >
                   Contact &amp; Corrections
+                </a>
+              </li>
+              <li>
+                <a href={neonlytechFooterHref} target="_blank" rel="noopener" className="hover:text-slate-900 dark:hover:text-white">
+                  NEONLYTECH (our other project) ↗
                 </a>
               </li>
               {/* The admin dashboard is deliberately not linked publicly; editors open /admin directly. */}
