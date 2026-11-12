@@ -144,7 +144,7 @@ Following the Google News Initiative's lesson:
 Google's developer documentation says publishers mark up their articles with ClaimReview structured data. Its eligibility guidelines include having several pages marked up, a clear corrections policy or way for users to report errors, and analysis that is traceable and transparent about sources and methods with references to primary sources. Political entities such as campaigns, parties and elected officials are not eligible, and the claim must come from an origin separate from the site. Gizmodo summarises the effect: you cannot run a check on any claim you like, because it must have been published by a source Google accepts and picked up.
 
 ### One recent change to know about
-The same developer page, which shows a last-updated date of 8 September 2026, says Google is phasing out support for ClaimReview markup in Google Search, though the markup remains supported by the Fact Check Explorer. We did not find details of what this means in practice, so the situation may change.
+The same developer page says Google is phasing out support for ClaimReview markup in Google Search, though the markup remains supported by the Fact Check Explorer. We did not find details of what this means in practice, so the situation may change.
 
 ### Limits and how to work around them
 Gizmodo notes results tend to appear for claims that are contentious, disputed and widely circulated, so a new or local rumour may return nothing. An empty result does not mean a claim is true; it only means no indexed fact check was found. Ratings also come from different publishers with their own scales (Google's documentation shows an example scale from "False" to "True" but publishers may use their own wording).
